@@ -1,0 +1,68 @@
+(undo-tree-save-format-version . 1)
+"ce8c348023004e2cadad1ea9daaa6d1d885821a3"
+[nil nil nil nil (27054 48250 913137 0) 0 nil]
+([nil nil ((nil rear-nonsticky nil 3723 . 3724) (nil fontified nil 1 . 3724) (1 . 3724) (t . -1)) nil (27054 48250 913137 0) 0 nil])
+([nil nil ((#("Your project uses: <%= @test_framework %>
+
+<% if @test_framework == 'RSpec' %>
+### RSpec Best Practices
+
+```ruby
+RSpec.describe User, type: :model do
+  describe 'validations' do
+    it { should validate_presence_of(:email) }
+    it { should validate_uniqueness_of(:email).case_insensitive }
+  end
+
+  describe '#full_name' do
+    let(:user) { build(:user, first_name: 'John', last_name: 'Doe') }
+
+    it 'returns the combined first and last name' do
+      expect(user.full_name).to eq('John Doe')
+    end
+  end
+end
+```
+
+### Request Specs
+```ruby
+RSpec.describe 'Users API', type: :request do
+  describe 'GET /api/v1/users' do
+    let!(:users) { create_list(:user, 3) }
+
+    before { get '/api/v1/users', headers: auth_headers }
+
+    it 'returns all users' do
+      expect(json_response.size).to eq(3)
+    end
+
+    it 'returns status code 200' do
+      expect(response).to have_http_status(200)
+    end
+  end
+end
+```
+
+### System Specs
+```ruby
+RSpec.describe 'User Registration', type: :system do
+  it 'allows a user to sign up' do
+    visit new_user_registration_path
+
+    fill_in 'Email', with: 'test@example.com'
+    fill_in 'Password', with: 'password123'
+    fill_in 'Password confirmation', with: 'password123'
+
+    click_button 'Sign up'
+
+    expect(page).to have_content('Welcome!')
+    expect(User.last.email).to eq('test@example.com')
+  end
+end
+```
+<% else %>
+" 0 79 (fontified t) 79 83 (face markdown-header-delimiter-face markdown-heading-3-atx (613 637 nil nil nil nil nil nil 613 617 617 637 #<buffer testing_2.md>) markdown-heading (613 637 nil nil nil nil nil nil 613 617 617 637 #<buffer testing_2.md>) fontified t) 83 103 (face markdown-header-face-3 markdown-heading-3-atx (613 637 nil nil nil nil nil nil 613 617 617 637 #<buffer testing_2.md>) markdown-heading (613 637 nil nil nil nil nil nil 613 617 617 637 #<buffer testing_2.md>) fontified t) 103 104 (font-lock-multiline t fontified t) 104 105 (fontified t) 105 108 (face (markdown-markup-face markdown-code-face) invisible markdown-markup markdown-gfm-block-begin (639 646 639 642 642 642 642 646 nil nil 646 646 #<buffer testing_2.md>) fontified t) 108 112 (face (markdown-language-keyword-face markdown-code-face) invisible markdown-markup markdown-gfm-block-begin (639 646 639 642 642 642 642 646 nil nil 646 646 #<buffer testing_2.md>) fontified t) 112 113 (invisible markdown-markup face (markdown-code-face) font-lock-multiline t fontified t) 113 396 (font-lock-multiline t face (markdown-pre-face markdown-code-face) markdown-gfm-code (647 1048) fontified t) 396 504 (font-lock-multiline t face (markdown-pre-face markdown-code-face) markdown-pre (930 1038) markdown-gfm-code (647 1048) fontified t) 504 514 (font-lock-multiline t face (markdown-pre-face markdown-code-face) markdown-gfm-code (647 1048) fontified t) 514 515 (font-lock-multiline t face (markdown-markup-face markdown-code-face) invisible markdown-markup markdown-gfm-block-end (1048 1051 1048 1051 #<buffer testing_2.md>) fontified t) 515 517 (face (markdown-markup-face markdown-code-face) invisible markdown-markup markdown-gfm-block-end (1048 1051 1048 1051 #<buffer testing_2.md>) fontified t) 517 518 (invisible markdown-markup face (markdown-code-face) font-lock-multiline t fontified t) 518 519 (fontified t) 519 523 (face markdown-header-delimiter-face markdown-heading-3-atx (1053 1070 nil nil nil nil nil nil 1053 1057 1057 1070 #<buffer testing_2.md>) markdown-heading (1053 1070 nil nil nil nil nil nil 1053 1057 1057 1070 #<buffer testing_2.md>) fontified t) 523 536 (face markdown-header-face-3 markdown-heading-3-atx (1053 1070 nil nil nil nil nil nil 1053 1057 1057 1070 #<buffer testing_2.md>) markdown-heading (1053 1070 nil nil nil nil nil nil 1053 1057 1057 1070 #<buffer testing_2.md>) fontified t) 536 537 (font-lock-multiline t fontified t) 537 540 (face (markdown-markup-face markdown-code-face) invisible markdown-markup markdown-gfm-block-begin (1071 1078 1071 1074 1074 1074 1074 1078 nil nil 1078 1078 #<buffer testing_2.md>) fontified t) 540 544 (face (markdown-language-keyword-face markdown-code-face) invisible markdown-markup markdown-gfm-block-begin (1071 1078 1071 1074 1074 1074 1074 1078 nil nil 1078 1078 #<buffer testing_2.md>) fontified t) 544 545 (invisible markdown-markup face (markdown-code-face) font-lock-multiline t fontified t) 545 669 (font-lock-multiline t face (markdown-pre-face markdown-code-face) markdown-gfm-code (1079 1445) fontified t) 669 901 (font-lock-multiline t face (markdown-pre-face markdown-code-face) markdown-pre (1203 1435) markdown-gfm-code (1079 1445) fontified t) 901 911 (font-lock-multiline t face (markdown-pre-face markdown-code-face) markdown-gfm-code (1079 1445) fontified t) 911 912 (font-lock-multiline t face (markdown-markup-face markdown-code-face) invisible markdown-markup markdown-gfm-block-end (1445 1448 1445 1448 #<buffer testing_2.md>) fontified t) 912 914 (face (markdown-markup-face markdown-code-face) invisible markdown-markup markdown-gfm-block-end (1445 1448 1445 1448 #<buffer testing_2.md>) fontified t) 914 915 (invisible markdown-markup face (markdown-code-face) font-lock-multiline t fontified t) 915 916 (fontified t) 916 920 (face markdown-header-delimiter-face markdown-heading-3-atx (1450 1466 nil nil nil nil nil nil 1450 1454 1454 1466 #<buffer testing_2.md>) markdown-heading (1450 1466 nil nil nil nil nil nil 1450 1454 1454 1466 #<buffer testing_2.md>) fontified t) 920 932 (face markdown-header-face-3 markdown-heading-3-atx (1450 1466 nil nil nil nil nil nil 1450 1454 1454 1466 #<buffer testing_2.md>) markdown-heading (1450 1466 nil nil nil nil nil nil 1450 1454 1454 1466 #<buffer testing_2.md>) fontified t) 932 933 (fontified t) 933 936 (face (markdown-markup-face markdown-code-face) invisible markdown-markup markdown-gfm-block-begin (1467 1474 1467 1470 1470 1470 1470 1474 nil nil 1474 1474 #<buffer testing_2.md>) fontified t) 936 940 (face (markdown-language-keyword-face markdown-code-face) invisible markdown-markup markdown-gfm-block-begin (1467 1474 1467 1470 1470 1470 1470 1474 nil nil 1474 1474 #<buffer testing_2.md>) fontified t) 940 941 (invisible markdown-markup face (markdown-code-face) font-lock-multiline t fontified t) 941 967 (font-lock-multiline t face (markdown-pre-face markdown-code-face) markdown-gfm-code (1475 1886) fontified t) 967 994 (font-lock-multiline t face (markdown-pre-face markdown-code-face) markdown-gfm-code (1475 1886) fontified t) 994 1067 (font-lock-multiline t face (markdown-pre-face markdown-code-face) fontified t markdown-gfm-code (1475 1886)) 1067 1342 (font-lock-multiline t face (markdown-pre-face markdown-code-face) fontified t markdown-pre (1601 1876) markdown-gfm-code (1475 1886)) 1342 1352 (font-lock-multiline t face (markdown-pre-face markdown-code-face) fontified t markdown-gfm-code (1475 1886)) 1352 1353 (fontified t font-lock-multiline t face (markdown-markup-face markdown-code-face) invisible markdown-markup markdown-gfm-block-end (1886 1889 1886 1889 #<buffer testing_2.md>)) 1353 1355 (fontified t face (markdown-markup-face markdown-code-face) invisible markdown-markup markdown-gfm-block-end (1886 1889 1886 1889 #<buffer testing_2.md>)) 1355 1356 (fontified t) 1356 1367 (fontified t)) . 534) (undo-tree-id6 . -1366) (undo-tree-id7 . -668) (undo-tree-id8 . -40) (undo-tree-id9 . -1366) (undo-tree-id10 . -40) (undo-tree-id11 . -40) (undo-tree-id12 . -932) (undo-tree-id13 . -994) (undo-tree-id14 . -798) (undo-tree-id15 . -1355) (undo-tree-id16 . -1356) (undo-tree-id17 . -1366) (undo-tree-id18 . -1242) (undo-tree-id19 . -1356) (undo-tree-id20 . -1366) (undo-tree-id21 . -1367) (undo-tree-id22 . -1366) 1900) nil (27054 48250 913136 0) 0 nil])
+([nil nil ((#("<% end %>
+" 0 10 (fontified t)) . 1321) (undo-tree-id0 . -9) (undo-tree-id1 . -8) (undo-tree-id2 . -8) (undo-tree-id3 . -8) (undo-tree-id4 . -8) (undo-tree-id5 . -10) 1329) nil (27054 48250 913129 0) 0 nil])
+([nil current ((2347 . 2348) 1321) nil (27054 48250 913113 0) 0 nil])
+nil

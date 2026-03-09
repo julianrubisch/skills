@@ -1,0 +1,604 @@
+# Preferred Design Patterns
+
+Your opinionated design toolkit. Each entry answers: what is it, when to reach for it,
+and how you like it structured. Review agents use this as the "fix" vocabulary —
+anti-patterns and smells point here for solutions.
+
+## Query Objects
+
+Encapsulate complex or reusable AR queries. Reach for this when a scope isn't enough
+— multiple conditions, joins, subqueries, or shared across contexts. Two shapes:
+
+### Relation-Wrapping Query
+
+Wraps an AR relation. Composable — accepts a base scope, returns a scope.
+
+```ruby
+# app/queries/overdue_invoices_query.rb
+class OverdueInvoicesQuery
+  def initialize(relation = Invoice.all)
+    @relation = relation
+  end
+
+  def call
+    @relation
+      .where("due_date < ?", Date.today)
+      .where(paid: false)
+      .order(:due_date)
+  end
+end
+
+# Usage
+OverdueInvoicesQuery.new.call
+OverdueInvoicesQuery.new(current_user.invoices).call
+```
+
+### Search / Filter Form
+
+**Preferred** when query parameters come from user input. Uses `ActiveModel::Model`
+\+ `ActiveModel::Attributes` for type coercion, defaults, and `form_with` integration.
+Lives in `app/models/`.
+
+```ruby
+# app/models/post_search.rb
+class PostSearch
+  include ActiveModel::Model
+  include ActiveModel::Attributes
+  
+  attribute :query, :string
+  attribute :author_id, :integer
+  attribute :status, :string
+  attribute :sort_column, :string, default: "created_at"
+  attribute :sort_direction, :string, default: "desc"
+  
+  def results
+    scope = Post.all
+    scope = scope.where("title ILIKE ?", "%#{query}%") if query.present?
+    scope = scope.where(author_id: author_id) if author_id.present?
+    scope = scope.where(status: status) if status.present?
+    scope.order(sort_column => sort_direction)
+  end
+  
+  def sort_options
+    [
+      ["Newest First", "created_at-desc"],
+      ["Oldest First", "created_at-asc"],
+      ["Title A-Z", "title-asc"],
+      ["Title Z-A", "title-desc"]
+    ]
+  end
+end
+```
+
+
+**When:** inline `.where` chains repeated in 2+ places, or query has 3+ conditions.
+**When not:** a simple named scope covers it.
+
+## Value Objects
+
+Represent a domain concept with no identity — **fungible** objects whose equality
+is based entirely on their attributes, not an id. Two `Color.new(255, 0, 0)`
+instances are the same color. Small, immutable, and replaceable.
+Reach for this when you see data clumps or primitive obsession.
+
+```ruby
+# app/models/color.rb — value object with equality, conversions, comparability
+class Color
+  include Comparable
+  include ActiveModel::Validations
+
+  attr_reader :red, :green, :blue, :alpha
+
+  validates :red, :green, :blue, inclusion: { in: 0..255 }
+  validates :alpha, inclusion: { in: 0.0..1.0 }
+
+  def initialize(red_or_hex, green = nil, blue = nil, alpha = 1.0)
+    case [red_or_hex, green, blue]
+    in [/\A#?[0-9A-Fa-f]{6}\z/ => hex, nil, nil]
+      @red, @green, @blue = [hex.delete("#")].pack("H*").unpack("C*")
+    else
+      @red, @green, @blue = red_or_hex.to_i, green.to_i, blue.to_i
+    end
+    @alpha = alpha.to_f
+  end
+
+  def ==(other)
+    other.is_a?(Color) && hash == other.hash
+  end
+
+  def hash
+    [red, green, blue, alpha].hash
+  end
+
+  def <=>(other)
+    lightness <=> other.lightness
+  end
+
+  def to_hex = format("%02X%02X%02X", red, green, blue)
+  def to_rgb_s = "rgb(#{red} #{green} #{blue})"
+end
+```
+
+### Integrating with ActiveRecord via `composed_of`
+
+`composed_of` is a built-in Rails macro that maps denormalized columns to a
+value object — think of it as an inline `has_one` without a separate table.
+
+```ruby
+class Theme < ApplicationRecord
+  composed_of :primary_color,
+              class_name: "Color",
+              mapping: {
+                primary_color_red: :red,
+                primary_color_green: :green,
+                primary_color_blue: :blue,
+                primary_color_alpha: :alpha
+              },
+              converter: ->(value) { Color.new(value) }
+
+  validates_associated :primary_color
+end
+
+# Now you get clean assignment, querying, and form integration:
+theme = Theme.create!(name: "Dark", primary_color: "#FF0000")
+theme.primary_color.to_hex          # => "FF0000"
+theme.update!(primary_color: "#00FF00")
+Theme.where(primary_color: Color.new("#0000FF"))
+```
+
+**Key options:**
+- `mapping:` — column-to-attribute hash. **Order matters** — it determines
+  constructor argument order.
+- `converter:` — proc called on assignment so you can write `= "#FF0000"`
+  instead of `= Color.new("#FF0000")`.
+- `allow_nil:` — permits setting the value object to nil (all columns → NULL).
+
+**When:** same 2-3 primitive values always travel together, or you find yourself
+duplicating formatting/comparison logic for raw primitives. Especially when the
+values are denormalized columns on a single table.
+**When not:** the concept has its own identity (needs its own table → use a model).
+
+## Form Objects
+
+Handle multi-model forms, virtual attributes, or complex input validation outside
+the model. Keeps models clean of presentation-driven concerns. A form object
+models user interaction, not domain entities — it's an application-layer boundary.
+
+Typical signals that a form object is needed:
+- `before|after_create|update` hooks with side effects on the model
+- Conditional validation based on UI flow state
+- Transient attributes (`should_send_welcome_email`) without database backing
+- A model reaching out to mutate other models from within its own logic
+
+### ApplicationForm Base Class
+
+Extract common form plumbing into a base class:
+
+```ruby
+# app/forms/application_form.rb
+class ApplicationForm
+  include ActiveModel::Model
+  include ActiveModel::Attributes
+  extend ActiveModel::Callbacks
+
+  define_model_callbacks :save, only: :after
+
+  class << self
+    def after_save(...)
+      set_callback(:save, :after, ...)
+    end
+
+    # Quack like ActiveRecord for route helpers and form_with
+    def model_name
+      ActiveModel::Name.new(self, nil, name.sub(/Form$/, ""))
+    end
+  end
+
+  # Behaves like ActiveRecord: returns false on invalid, wraps in transaction
+  def save
+    return false unless valid?
+
+    with_transaction { run_callbacks(:save) { submit! } }
+  end
+
+  private
+
+  def with_transaction(&)
+    ApplicationRecord.transaction(&)
+  end
+
+  # Subclasses must implement — the actual persistence logic
+  def submit!
+    raise NotImplementedError
+  end
+end
+```
+
+### Concrete Form Object
+
+```ruby
+# app/forms/contact_form.rb
+class ContactForm < ApplicationForm
+  attribute :name, :string
+  attribute :email, :string
+  attribute :should_send_welcome_email, :boolean, default: false
+  attribute :follow_up, :boolean, default: false
+
+  validates :name, presence: true, if: :follow_up
+  validates :email, presence: true
+  validate :contact_is_valid
+
+  after_save :deliver_welcome_email!, if: :should_send_welcome_email
+
+  delegate :to_param, :id, to: :contact, allow_nil: true
+
+  def contact
+    @contact ||= Contact.new(name:, email:,
+      follow_up_started_at: (follow_up ? Time.current : nil))
+  end
+
+  private
+
+  def submit!
+    contact.save!
+  end
+
+  # Bubble model-level errors into the form
+  def contact_is_valid
+    return if contact.valid?
+    errors.merge!(contact.errors)
+  end
+
+  def deliver_welcome_email!
+    ContactMailer.welcome(name, email).deliver_later
+  end
+end
+```
+
+### Usage in Controller and View
+
+```ruby
+# Controller — same shape as a model-backed controller
+class ContactsController < ApplicationController
+  def new    = @contact_form = ContactForm.new
+  def create
+    @contact_form = ContactForm.new(contact_params)
+    if @contact_form.save
+      redirect_to @contact_form   # routes to /contacts/:id via model_name
+    else
+      render :new
+    end
+  end
+end
+```
+
+```erb
+<%# form_with routes to /contacts via model_name %>
+<%= form_with model: @contact_form do |f| %>
+  <%= f.text_field :name %>
+  <%= f.email_field :email %>
+  <%= f.check_box :should_send_welcome_email %>
+<% end %>
+```
+
+**When:** form spans multiple models, has virtual fields, validation rules are
+specific to one UI flow, or the model carries transient attributes / side-effect
+callbacks that belong to the interaction, not the domain.
+**When not:** single-model form with standard validations — just use the model.
+
+## Rule Objects
+
+Encapsulate complex conditional logic — sets of guard clauses that determine
+whether something should happen. Better than a long `call` method with many
+`return if` checks. Testable in isolation.
+
+```ruby
+# app/rules/continuation_rule.rb
+class ContinuationRule
+  CONVERSATION_LENGTH_MIN = 3
+  LENGTH_CUTOFF = 250
+  MAX_TOKENS = 8_000
+
+  def initialize(message)
+    @message = message
+  end
+
+  def satisfied?
+    !sender_is_csm? &&
+      onboarding_complete? &&
+      conversation_long_enough? &&
+      message_short_enough? &&
+      within_token_limit?
+  end
+
+  private
+
+  def sender_is_csm?       = @message.sender.csm?
+  def onboarding_complete? = @message.account.onboarding_complete?
+  def conversation_long_enough? = @message.conversation.messages.count >= CONVERSATION_LENGTH_MIN
+  def message_short_enough? = @message.content.to_s.length <= LENGTH_CUTOFF
+  def within_token_limit?  = @message.tokens_count.to_i <= MAX_TOKENS
+end
+
+# Usage
+if ContinuationRule.new(message).satisfied?
+  # proceed
+end
+```
+
+**When:** a single method has 4+ guard clauses, or the conditions need to be
+tested independently, or the same set of conditions appears in multiple places.
+
+## Strategy Objects
+
+Composition-based polymorphism. Instead of subclassing to vary behavior,
+inject collaborator objects that implement a common interface. The host object
+delegates to its strategy — behavior is pluggable at runtime.
+
+```ruby
+# Each strategy implements the same interface
+class Transport::Email
+  def deliver(campaign)
+    campaign.addressees.find_each do |addressee|
+      EmailService::Client.deliver(to: addressee, body: campaign.body)
+    end
+  end
+end
+
+class Transport::Sms
+  def deliver(campaign)
+    campaign.addressees.find_each do |addressee|
+      campaign.body.chars.each_slice(SMS_CHAR_LENGTH).map(&:join).each do |chunk|
+        SmsService::Client.deliver(to: addressee, body: chunk)
+      end
+    end
+  end
+end
+
+class Output::HTML
+  def format(content) = content.to_html
+end
+
+class Output::Plain
+  def format(content) = content.truncate(SMS_CHAR_LENGTH)
+end
+
+# Host composes strategies — no inheritance needed
+class Campaign
+  attr_accessor :transport, :output
+  attr_reader :body
+
+  def initialize(transport:, output:, body:)
+    @transport, @output, @body = transport, output, body
+  end
+
+  def process
+    @body = output.format(@body)
+    transport.deliver(self)
+  end
+end
+
+# Runtime flexibility — swap strategies freely
+campaign = Campaign.new(transport: Transport::Email.new, output: Output::HTML.new, body: content)
+campaign.process
+
+campaign.transport = Transport::Sms.new
+campaign.output    = Output::Plain.new
+campaign.process
+```
+
+**Rule of thumb** (Sandi Metz):
+- **Inherit** only for true "is-a" relationships with a stable type hierarchy.
+- **Mixin** for cross-cutting "acts-as" concerns (`Closeable`, `Watchable`).
+- **Compose** for flexible "uses-a" relationships — when you need runtime
+  swappability or the behaviors vary independently.
+
+If you're tempted to inherit just to reuse code, compose instead.
+
+**When:** family of interchangeable behaviors (transports, formatters, storage
+backends). The behaviors are independent and don't need deep access to the
+host's internal state.
+**When not:** simple `case` in a controller action that doesn't warrant the
+abstraction. If the strategy needs half the model's attributes, you're adding
+indirection for no gain (Feature Envy).
+
+## `store_accessor` for JSON/JSONB Columns
+
+Expose JSON column keys as first-class attributes with type coercion.
+Avoids `properties["reactions"]` string-keyed access throughout the codebase.
+
+```ruby
+class Message < ApplicationRecord
+  store_accessor :properties, :reactions, :responding_to, :tokens_count
+
+  # Now accessed as:
+  message.reactions        # instead of message.properties["reactions"]
+  message.responding_to=   # instead of message.properties[:responding_to] =
+end
+```
+
+**When:** a JSONB/JSON column has a known set of keys accessed in multiple places.
+**When not:** the JSON structure is fully dynamic or schema-less.
+
+## Presenters / Decorators
+
+Add display logic to a model without polluting it. Keeps views and models clean.
+
+<!-- Add your preferred approach here: Draper? Plain Ruby decorator? ViewComponent? -->
+
+**When:** model methods start returning HTML, formatted strings, or view-specific logic.
+
+## Policy Objects (Pundit)
+
+Authorization rules live in policy objects, separate from models and controllers.
+One policy per resource, named `<Model>Policy`.
+
+```ruby
+# app/policies/card_policy.rb
+class CardPolicy < ApplicationPolicy
+  def update?
+    record.creator == user || user.admin?
+  end
+
+  def destroy?
+    update?
+  end
+
+  class Scope < ApplicationPolicy::Scope
+    def resolve
+      scope.where(account: user.account)
+    end
+  end
+end
+
+# Controller
+class CardsController < ApplicationController
+  def update
+    @card = Card.find(params[:id])
+    authorize @card
+
+    @card.update!(card_params)
+  end
+
+  def index
+    @cards = policy_scope(Card)
+  end
+end
+```
+
+**When:** authorization logic is conditional, role-based, or duplicated across controllers.
+**When not:** a simple `current_user.admin?` check in one place — inline is fine.
+
+
+## Calculator Objects
+
+Extract complex calculations into a PORO namespaced under the model it serves.
+Follows the `app/models/<model>/<concept>.rb` convention
+(see `coding-classic.md § POROs Namespaced Under Models`).
+
+```ruby
+# app/models/line_item.rb
+class LineItem < ApplicationRecord
+  def price
+    LineItems::Price.new(self).calculate
+  end
+end
+
+# app/models/line_items/price.rb
+module LineItems
+  class Price
+    def initialize(line_item)
+      @line_item = line_item
+      @product = line_item.product
+    end
+
+    def calculate
+      base_price + options_price - discount
+    end
+
+    private
+
+    def base_price
+      @product.base_price
+    end
+
+    def options_price
+      @line_item.options.sum(&:price)
+    end
+
+    def discount
+      @line_item.coupon&.discount_amount || 0
+    end
+  end
+end
+```
+
+**When:** a model method contains 3+ private helpers all dedicated to one calculation.
+**When not:** the calculation is a simple one-liner — leave it on the model.
+
+## Domain Models over Service Objects
+
+**Key principle:** a representation of a business domain concept is called a **model**.
+Instead of `*Service`, `*Manager`, `*Handler` — name the domain concept as a noun.
+
+```ruby
+# Bad — procedural, no domain identity
+# app/services/notification_service.rb
+class NotificationService
+  def self.call(user, message)
+    # sends notification
+  end
+end
+
+# Good — domain model, lives in app/models/
+# app/models/notification.rb
+class Notification
+  include ActiveModel::Model
+
+  attr_accessor :user, :message
+
+  def deliver
+    # sends notification
+  end
+end
+```
+
+### Naming Guidelines
+
+| Instead of | Use |
+|------------|-----|
+| `UserSignupService` | `Registration` or `UserSignup` |
+| `PaymentProcessor` | `Payment` |
+| `NotificationService` | `Notification` or `NotificationDelivery` |
+| `EmailSender` | `Email` or `EmailMessage` |
+| `OrderCreator` | `Order` or `OrderPlacement` |
+| `InvitationManager` | `Invitation` |
+
+**Rule**: think of the **noun** that describes what this thing *is*, not what it *does*.
+
+These domain models use `ActiveModel::Model` for validation, form integration, and
+mass assignment from params — the same foundation as Form Objects. For simple
+multi-model orchestration that doesn't need the full `ApplicationForm` base class,
+a plain `ActiveModel::Model` class with a `save` method is enough:
+
+```ruby
+# app/models/registration.rb — lightweight domain model
+class Registration
+  include ActiveModel::Model
+
+  attr_accessor :email, :password, :company_name
+
+  validates :email, presence: true, format: { with: URI::MailTo::EMAIL_REGEXP }
+  validates :password, presence: true, length: { minimum: 8 }
+  validates :company_name, presence: true
+
+  def save
+    return false unless valid?
+
+    create_user
+    create_company
+    send_welcome_email
+    true
+  end
+
+  private
+
+  def create_user
+    @user = User.create!(email: email, password: password)
+  end
+
+  def create_company
+    @company = Company.create!(name: company_name, owner: @user)
+  end
+
+  def send_welcome_email
+    RegistrationMailer.welcome(@user).deliver_later
+  end
+end
+```
+
+**When to reach for `ApplicationForm` instead:** when you need `after_save` callbacks,
+`model_name` quacking for route helpers, or `submit!` / `with_transaction` plumbing.
+
+See also: `refactorings/010-refactor-service-object-into-poro.md`,
+`review-architecture.md § Anti-patterns > Service Objects`

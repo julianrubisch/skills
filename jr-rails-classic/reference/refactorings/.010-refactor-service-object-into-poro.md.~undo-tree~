@@ -1,0 +1,13 @@
+(undo-tree-save-format-version . 1)
+"563b7d6ddc25e7ae1329ab23d0a259bf58ca8e75"
+[nil nil nil nil (27037 44783 652272 0) 0 nil]
+([nil nil ((nil rear-nonsticky nil 1341 . 1342) (nil fontified nil 1 . 1342) (1 . 1342) (t . -1)) nil (27037 44783 652272 0) 0 nil])
+([nil nil ((#("---
+" 0 3 (font-lock-multiline t face markdown-hr-face markdown-hr (1338 1341 1338 1341 #<buffer 010-refactor-service-object-into-poro.md>) fontified t) 3 4 (font-lock-multiline t fontified t)) . 1338) (undo-tree-id9 . -3) (undo-tree-id10 . -2) (undo-tree-id11 . -2) (undo-tree-id12 . -2) (undo-tree-id13 . -2) (undo-tree-id14 . -2) (undo-tree-id15 . -2) (undo-tree-id16 . -2) (undo-tree-id17 . -2) (undo-tree-id18 . -4) 1340) nil (27037 44783 652271 0) 0 nil])
+([nil nil ((#("
+" 0 1 (fontified t)) . 1337) (undo-tree-id0 . -1) (undo-tree-id1 . -1) (undo-tree-id2 . -1) (undo-tree-id3 . -1) (undo-tree-id4 . -1) (undo-tree-id5 . -1) (undo-tree-id6 . -1) (undo-tree-id7 . -1) (undo-tree-id8 . -1)) nil (27037 44783 652266 0) 0 nil])
+([nil nil ((#("#" 0 1 (face markdown-header-delimiter-face markdown-heading-3-atx (41 80 nil nil nil nil nil nil 41 45 45 80 #<buffer 010-refactor-service-object-into-poro.md>) markdown-heading (41 80 nil nil nil nil nil nil 41 45 45 80 #<buffer 010-refactor-service-object-into-poro.md>) fontified t)) . 41) (undo-tree-id25 . -1) (undo-tree-id26 . -1) (t 27037 44783 656497 947000)) nil (27037 44799 227915 0) 0 nil])
+([nil nil ((#("#" 0 1 (markdown-heading-3-atx (355 389 nil nil nil nil nil nil 355 359 359 389 #<buffer 010-refactor-service-object-into-poro.md>) markdown-heading (355 389 nil nil nil nil nil nil 355 359 359 389 #<buffer 010-refactor-service-object-into-poro.md>) face markdown-header-delimiter-face fontified t)) . 355) (undo-tree-id23 . -1) (undo-tree-id24 . -1)) nil (27037 44799 227914 0) 0 nil])
+([nil nil ((#("#" 0 1 (markdown-heading-3-atx (575 621 nil nil nil nil nil nil 575 579 579 621 #<buffer 010-refactor-service-object-into-poro.md>) markdown-heading (575 621 nil nil nil nil nil nil 575 579 579 621 #<buffer 010-refactor-service-object-into-poro.md>) face markdown-header-delimiter-face fontified t)) . 575) (undo-tree-id21 . -1) (undo-tree-id22 . -1)) nil (27037 44799 227913 0) 0 nil])
+([nil current ((#("#" 0 1 (markdown-heading-3-atx (967 996 nil nil nil nil nil nil 967 971 971 996 #<buffer 010-refactor-service-object-into-poro.md>) markdown-heading (967 996 nil nil nil nil nil nil 967 971 971 996 #<buffer 010-refactor-service-object-into-poro.md>) face markdown-header-delimiter-face fontified t)) . 967) (undo-tree-id19 . -1) (undo-tree-id20 . -1)) nil (27037 44799 227910 0) 0 nil])
+nil

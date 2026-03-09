@@ -1,0 +1,7 @@
+(undo-tree-save-format-version . 1)
+"25490ac7db57f103d67c1e2dcb463c92f38d3b1d"
+[nil nil nil nil (27054 45900 437105 0) 0 nil]
+([nil nil ((nil rear-nonsticky nil 3022 . 3023) (nil fontified nil 1 . 3023) (1 . 3023) (t . -1)) nil (27054 45900 437104 0) 0 nil])
+([nil nil ((3023 . 3024) 3022) nil (27054 45900 437101 0) 0 nil])
+([nil current ((2313 . 2326) (2292 . 2313) (#("p" 0 1 (fontified t)) . -2292) (undo-tree-id0 . -1) (undo-tree-id1 . -1) (#("t" 0 1 (fontified t)) . -2293) (undo-tree-id2 . -1) (undo-tree-id3 . -1) (#("h" 0 1 (fontified t)) . -2294) (undo-tree-id4 . -1) (undo-tree-id5 . -1) (#("e" 0 1 (fontified t)) . -2295) (undo-tree-id6 . -1) (undo-tree-id7 . -1) 2296 (2292 . 2296) (#("s" 0 1 (fontified t)) . -2292) (undo-tree-id8 . 1) (undo-tree-id9 . -1) (undo-tree-id10 . -1) (undo-tree-id11 . -1) (undo-tree-id12 . -1) 2293 (#("service object" 0 14 (fontified t)) . 2292) (undo-tree-id13 . -13) (undo-tree-id14 . -13) (undo-tree-id15 . -13) (undo-tree-id16 . -13) (undo-tree-id17 . -14) (undo-tree-id18 . -14) (undo-tree-id19 . -14) (undo-tree-id20 . -13) 2305 (t 27054 45900 440186 167000)) nil (27054 45959 520255 0) 0 nil])
+nil

@@ -1,0 +1,21 @@
+{
+  "name": "jr-rails-skills",
+  "description": "Rails coding skills: classic style, Phlex components, app scaffolder",
+  "skills": [
+    {
+      "name": "jr-rails-classic",
+      "path": "jr-rails-classic",
+      "description": "Write Rails code in 37signals/classic style"
+    },
+    {
+      "name": "jr-rails-new",
+      "path": "jr-rails-new",
+      "description": "Scaffold a new Rails app with preferred stack"
+    },
+    {
+      "name": "jr-rails-phlex",
+      "path": "jr-rails-phlex",
+      "description": "Write Phlex views and components for Rails"
+    }
+  ]
+}
