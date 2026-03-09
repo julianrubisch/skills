@@ -1,5 +1,0 @@
-(undo-tree-save-format-version . 1)
-"88fde1f6db7916b1a74c59b2b00afae102a06543"
-[nil nil nil nil (27032 18256 657103 0) 0 nil]
-([nil current ((nil rear-nonsticky nil 2268 . 2269) (nil fontified nil 1300 . 2269) (1300 . 2269) (#("<!-- Add further preferred patterns here: form objects, query objects, value objects, etc. -->" 0 1 (face markdown-comment-face fontified t markdown-comment (1300 1394) syntax-table (11)) 1 93 (face markdown-comment-face fontified t markdown-comment (1300 1394)) 93 94 (face markdown-comment-face fontified t markdown-comment (1300 1394) syntax-table (12))) . 1300) (undo-tree-id0 . -94) (undo-tree-id1 . -93) 1395 (t 27032 16981 887922 394000)) nil (27032 18256 657101 0) 0 nil])
-nil

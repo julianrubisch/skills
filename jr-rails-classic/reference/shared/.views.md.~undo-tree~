@@ -1,6 +1,0 @@
-(undo-tree-save-format-version . 1)
-"eec20f3ccf71f609ee025e4851bbc6e744672c30"
-[nil nil nil nil (27054 48361 968082 0) 0 nil]
-([nil nil ((nil rear-nonsticky nil 2927 . 2928) (nil fontified nil 1 . 2928) (1 . 2928) (t . -1)) nil (27054 48361 968081 0) 0 nil])
-([nil current ((2928 . 2929) 2927) nil (27054 48361 968079 0) 0 nil])
-nil

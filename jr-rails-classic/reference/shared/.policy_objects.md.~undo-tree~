@@ -1,7 +1,0 @@
-(undo-tree-save-format-version . 1)
-"2fcc71ccb281b52699235798fb44140f47b1833d"
-[nil nil nil nil (27054 38501 58351 0) 0 nil]
-([nil nil ((nil rear-nonsticky nil 5844 . 5845) (nil fontified nil 1 . 5845) (1 . 5845) (t . -1)) nil (27054 38501 58351 0) 0 nil])
-([nil nil ((5790 . 5796) (#("action_policy" 0 13 (face (markdown-table-face) fontified t)) . 5790) (undo-tree-id0 . -12) (undo-tree-id1 . -13) (undo-tree-id2 . -13)) nil (27054 38501 58349 0) 0 nil])
-([nil current ((5838 . 5839)) nil (27054 38501 58333 0) 0 nil])
-nil
