@@ -168,64 +168,63 @@ Create `CLAUDE.md` in the app root with project conventions:
 #### 3g. Worktree config (if selected)
 
 Set up the agentic worktree workflow using [worktrunk](https://worktrunk.dev).
-The exact setup depends on whether dev containers are also enabled (Q#6).
+The exact binstubs and `database.yml` depend on the database choice (Q#2) and
+whether dev containers are enabled (Q#6).
 
-**If dev container = yes AND worktree = yes (full isolation):**
-
-1. Create `.config/wt.toml`:
+**1. Create `.config/wt.toml`** (same for all strategies):
 
 ```toml
-[worktree]
-path = "../.worktrees/{branch}"
+[list]
+url = "http://localhost:{{ branch | hash_port }}"
 
-[hooks]
-post-create = "bin/agent-setup"
-pre-remove = "bin/agent-archive"
+[post-create]
+setup = "AGENT_WORKSPACE={{ branch | sanitize }} AGENT_ROOT_PATH={{ primary_worktree_path }} bin/agent-setup"
 
-[hooks.env]
-AGENT_ROOT_PATH = "{root}"
-AGENT_WORKSPACE = "{branch}"
+[pre-remove]
+cleanup = "AGENT_WORKSPACE={{ branch | sanitize }} bin/agent-cleanup"
+
+[post-remove]
+kill-server = "lsof -ti :{{ branch | hash_port }} -sTCP:LISTEN | xargs kill 2>/dev/null || true"
+
+[post-start]
+server = "PORT={{ branch | hash_port }} VITE_RUBY_PORT={{ (branch ~ '-vite') | hash_port }} bin/agent-server"
 ```
 
-2. Create the three binstubs from
-   [reference/agentic-worktrees.md](reference/agentic-worktrees.md):
-   - `bin/agent-setup` — port computation, symlinks, `docker compose up -d`,
-     `bin/setup`, `db:create db:schema:load`
-   - `bin/agent-server` — export PORT/DATABASE_URL, run `bin/dev`
-   - `bin/agent-archive` — `db:drop`, `docker compose down -v`, cleanup
+**2. Create the binstubs** from
+[reference/agentic-worktrees.md](reference/agentic-worktrees.md), choosing the
+variant that matches the stack:
 
-3. Create `.devcontainer/agent.json` extending the main devcontainer with
-   `AGENT_*` env vars forwarded into the container.
+| Database | Dev container | Strategy | Reference section |
+|----------|--------------|----------|-------------------|
+| `sqlite3` | any | SQLite | § Binstubs — SQLite |
+| `postgresql` / `mysql2` | no | Port-based | § Binstubs — PostgreSQL (port-based) |
+| `postgresql` / `mysql2` | yes (per-worktree) | Per-worktree devcontainer | § Binstubs — PostgreSQL + Docker Compose (Per-Worktree Devcontainer) |
+| `postgresql` / `mysql2` | yes (shared PG) | Shared PG | § Binstubs — PostgreSQL + Docker Compose (Shared PG) |
 
-4. Modify `config/database.yml` to use workspace-aware database names:
+The **per-worktree devcontainer** strategy uses `devcontainer up` /
+`devcontainer exec` (not raw `docker compose`) so that features, `containerEnv`,
+and `postCreateCommand` from `devcontainer.json` are applied. The
+`postCreateCommand` should be `bin/setup --skip-server`.
 
-```yaml
-development:
-  primary: &primary
-    adapter: postgresql
-    encoding: unicode
-    pool: <%= ENV.fetch("RAILS_MAX_THREADS", 5) %>
-    database: <%= "APP_NAME_#{ENV.fetch('AGENT_WORKSPACE', 'development')}" %>
-    host: localhost
-    port: <%= ENV.fetch("AGENT_DB_PORT", 5432) %>
-    username: postgres
-    password: postgres
-```
+The **shared PG** strategy is simpler: one PostgreSQL container shared across
+all worktrees, Rails runs on the host. Prefer this when the host already has
+Ruby (via mise/rbenv/asdf) and you want worktrees to run tests independently.
 
-5. Update `CLAUDE.md` with worktree workflow docs.
+**3. Modify `config/database.yml`** to use workspace-aware names:
 
-**If dev container = no AND worktree = yes (port-based isolation only):**
+- **SQLite:** prefix each database path with `AGENT_WORKSPACE` (defaults to
+  `development`). See reference § `config/database.yml` (SQLite).
+- **PostgreSQL:** suffix database name with `AGENT_WORKSPACE`. See reference
+  § `config/database.yml` (PostgreSQL).
 
-1. Create `.config/wt.toml` (same as above).
+**4. If dev container = yes**, create `.devcontainer/agent.json` extending the
+main devcontainer with `AGENT_*` env vars forwarded into the container.
 
-2. Create the three binstubs (same as above, but skip `docker compose` calls —
-   services run on the host with port offsets only).
+**5. Update `CLAUDE.md`** with worktree workflow docs (see reference § CLAUDE.md).
 
-3. Modify `config/database.yml` (same as above).
+**6. Update `README.md`** with the workflow (see reference § Project README).
 
-4. Update `CLAUDE.md` with worktree workflow docs.
-
-**In both cases**, create `.claude/settings.json`:
+**7. Create `.claude/settings.json`**:
 
 ```json
 {
@@ -235,15 +234,12 @@ development:
       "Bash(git branch *)",
       "Bash(wt *)",
       "Bash(bin/agent-*)",
-      "Bash(docker compose *)"
+      "Bash(docker compose *)",
+      "Bash(devcontainer *)"
     ]
   }
 }
 ```
-
-Add a section to the project README documenting the agentic worktree workflow
-(see [reference/agentic-worktrees.md § Project README](reference/agentic-worktrees.md)
-for the template).
 
 See [reference/agentic-worktrees.md](reference/agentic-worktrees.md) for full
 templates, port allocation scheme, and configuration details.

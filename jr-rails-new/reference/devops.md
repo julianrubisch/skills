@@ -22,6 +22,43 @@ needed for single-server deployments.
 
 **When to choose:** most Rails apps. One to many servers, single or multi-service.
 
+### Kamal: Splitting Web and Workers on a Single Server
+
+Rails 8 defaults to `SOLID_QUEUE_IN_PUMA: true`, running Solid Queue inside the
+Puma process. This works initially but becomes a problem when background jobs
+(scraping, imports, bulk emails) consume enough CPU to starve the web server.
+
+**Fix:** split into separate containers on the same host with CPU and memory
+limits. No second server needed.
+
+```yaml
+# config/deploy.yml
+servers:
+  web:
+    hosts:
+      - 1.2.3.4
+    options:
+      cpus: 2
+      memory: 2g
+  workers:
+    hosts:
+      - 1.2.3.4          # same host
+    cmd: "bin/jobs"
+    options:
+      cpus: 2
+      memory: 4g          # workers typically need more memory
+```
+
+Remove `SOLID_QUEUE_IN_PUMA: true` from the `env.clear` section — workers now
+run via `bin/jobs` in their own container.
+
+**Key points:**
+- Same image, same host — just two containers with different commands
+- `cpus` and `memory` map to Docker's `--cpus` and `--memory` flags
+- Monitor with `docker stats` on the server to verify limits are enforced
+- Use Mission Control (`/jobs`) to verify workers are processing
+- When one server isn't enough, move the `workers` host to a dedicated machine
+
 ### PaaS (Render, Fly.io, Railway)
 
 Managed platforms that handle the runtime, registry, TLS, and auto-scaling.
