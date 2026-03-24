@@ -55,6 +55,7 @@ so a different input produces a different deterministic port.
 | Variable / Filter | Description |
 |-------------------|-------------|
 | `{{ branch }}` | Branch name of the worktree |
+| `{{ worktree_path }}` | Absolute path to the current worktree |
 | `{{ primary_worktree_path }}` | Absolute path to the main (primary) worktree |
 | `{{ branch \| sanitize }}` | Branch name with `/` replaced by `-`, safe for filenames and env vars |
 | `{{ branch \| hash_port }}` | Deterministic port (10000–19999) derived from branch name via CRC32 |
@@ -322,8 +323,27 @@ The `postCreateCommand` in `devcontainer.json` should run
 `bin/setup --skip-server`, which handles `bundle install`, `yarn install`,
 and `db:prepare` when the container is first created.
 
+An alternative to passing env vars inline in `wt.toml` is to write a
+`.devcontainer/.env` file in the `[post-create]` hook:
+
+```toml
+[post-create]
+env = """
+cat > .devcontainer/.env << EOF
+COMPOSE_PROJECT_NAME=myapp_{{ branch | sanitize }}
+WORKTREE_PATH={{ worktree_path }}
+APP_PORT=0
+VITE_PORT=0
+EOF
+"""
+devcontainer = "devcontainer up --workspace-folder {{ worktree_path }}"
+```
+
+This keeps the compose file clean — it reads from `.devcontainer/.env`
+automatically.
+
 ```bash
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 WORKSPACE="${AGENT_WORKSPACE:?AGENT_WORKSPACE must be set}"
@@ -345,73 +365,165 @@ cp "$ROOT"/config/master.key config/ 2>/dev/null || true
 
 # Start isolated devcontainer for this worktree
 # devcontainer up applies features, containerEnv, and postCreateCommand
-export COMPOSE_PROJECT_NAME="myapp_${WORKSPACE}"
-export WORKTREE_PATH
-export APP_PORT=0    # random available port
-export VITE_PORT=0
-
 devcontainer up --workspace-folder "$WORKTREE_PATH"
 
 echo "==> Workspace $WORKSPACE ready"
 ```
 
-### `bin/agent-cleanup`
+### `bin/agent-exec`
 
-Tears down the worktree's container stack. Auto-detects ROOT from git if
-`AGENT_ROOT_PATH` isn't set:
+Runs commands inside a worktree's container from the host. Uses
+`devcontainer exec` instead of `docker compose exec` so that `containerEnv`
+from `devcontainer.json` is automatically applied.
+
+Derives workspace folder from its own script location — no need for git
+commands or environment variables. Includes a guard to refuse running inside
+a container.
 
 ```bash
-#!/bin/bash
+#!/usr/bin/env bash
+#
+# bin/agent-exec — Run a command inside this worktree's devcontainer.
+#
+# Usage:
+#   bin/agent-exec bin/rails test
+#   bin/agent-exec bin/rubocop -f github
+#   bin/agent-exec bin/rails db:migrate
+#
+# This script is designed to run on the HOST machine, not inside a container.
+
+set -euo pipefail
+
+# Guard: refuse to run inside a container
+if [ "${DEVCONTAINER:-}" = "1" ]; then
+  echo "Error: bin/agent-exec is meant to run on the host, not inside a container." >&2
+  echo "Run your command directly instead: $*" >&2
+  exit 1
+fi
+
+if [ $# -eq 0 ]; then
+  echo "Usage: bin/agent-exec <command> [args...]" >&2
+  echo "Example: bin/agent-exec bin/rails test test/system/my_test.rb" >&2
+  exit 1
+fi
+
+WORKSPACE_FOLDER="$(cd "$(dirname "$0")/.." && pwd)"
+exec devcontainer exec --workspace-folder "$WORKSPACE_FOLDER" "$@"
+```
+
+**Important:** pass args as `"$@"` (not `bash -ic "$*"`). This preserves
+argument boundaries correctly and avoids shell escaping issues.
+
+### `bin/agent-server`
+
+Starts the dev server inside the worktree's container from the host. Handles
+stale overmind socket cleanup before starting. Used by the `[post-start]` hook
+or manually.
+
+```bash
+#!/usr/bin/env bash
+#
+# bin/agent-server — Start the dev server inside this worktree's devcontainer.
+#
+# Usage:
+#   bin/agent-server              # from a worktree directory on the host
+#   wt start feature/my-branch    # triggers this via post-start hook
+
+set -euo pipefail
+
+# Guard: refuse to run inside a container
+if [ "${DEVCONTAINER:-}" = "1" ]; then
+  echo "Error: bin/agent-server is meant to run on the host, not inside a container." >&2
+  echo "Run bin/dev directly instead." >&2
+  exit 1
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# If overmind is already running, stop it cleanly before restarting.
+# Only remove a stale socket when overmind is not responding.
+if "$SCRIPT_DIR/agent-exec" sh -c 'test -S .overmind.sock' 2>/dev/null; then
+  if "$SCRIPT_DIR/agent-exec" overmind quit 2>/dev/null; then
+    sleep 1
+  else
+    "$SCRIPT_DIR/agent-exec" sh -c 'rm -f .overmind.sock' 2>/dev/null || true
+  fi
+fi
+
+exec "$SCRIPT_DIR/agent-exec" bin/dev
+```
+
+### `bin/agent-cleanup`
+
+Tears down the worktree's container stack using `docker compose down -v`.
+There is no `devcontainer down` — this is the correct teardown method.
+
+```bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 WORKSPACE="${AGENT_WORKSPACE:?AGENT_WORKSPACE must be set}"
-ROOT="${AGENT_ROOT_PATH:-$(git -C "$(dirname "$0")/.." worktree list --porcelain | head -1 | cut -d' ' -f2)}"
+
+WORKSPACE_FOLDER="$(cd "$(dirname "$0")/.." && pwd)"
 
 echo "==> Cleaning up workspace: $WORKSPACE"
 
-# Tear down the worktree's devcontainer stack
-export COMPOSE_PROJECT_NAME="myapp_${WORKSPACE}"
-docker compose -f "$ROOT/.devcontainer/compose.yaml" down -v 2>/dev/null || true
+docker compose --project-directory "$WORKSPACE_FOLDER/.devcontainer" down --volumes 2>/dev/null || true
 
 # Remove symlinks
-rm -f .env .bundle node_modules storage 2>/dev/null || true
+rm -f .env .bundle storage 2>/dev/null || true
 
 echo "==> Workspace $WORKSPACE cleaned up"
 ```
 
-### `bin/agent-exec`
+### `.config/wt.toml` for devcontainer strategy
 
-Convenience script to run commands inside a worktree's container. Uses
-`devcontainer exec` instead of `docker compose exec` so that `containerEnv`
-from `devcontainer.json` is automatically applied:
+The `[post-start]` hook calls `bin/agent-server` using `{{ worktree_path }}`
+for the absolute path. The `[pre-remove]` hook kills the server and tears down
+containers:
 
-```bash
-#!/bin/bash
-set -euo pipefail
+```toml
+[list]
+url = "http://localhost:{{ branch | hash_port }}"
 
-# Run a command inside this worktree's devcontainer.
-# Usage: bin/agent-exec bin/rails test
-#        bin/agent-exec bin/ci
-#        bin/agent-exec bin/rubocop -a
+[post-create]
+env = """
+cat > .devcontainer/.env << EOF
+COMPOSE_PROJECT_NAME=myapp_{{ branch | sanitize }}
+WORKTREE_PATH={{ worktree_path }}
+APP_PORT=0
+VITE_PORT=0
+EOF
+"""
+devcontainer = "devcontainer up --workspace-folder {{ worktree_path }}"
 
-WORKTREE_PATH="$(pwd)"
+[post-start]
+server = "{{ worktree_path }}/bin/agent-server"
 
-devcontainer exec --workspace-folder "$WORKTREE_PATH" bash -ic "$*"
+[pre-remove]
+kill-server = "lsof -ti :{{ branch | hash_port }} -sTCP:LISTEN | xargs kill 2>/dev/null || true"
+teardown = "docker compose --project-directory {{ worktree_path }}/.devcontainer down --volumes"
 ```
 
 ### CLAUDE.md addition
 
-Document `bin/agent-exec` as the way to run tests/CI in worktrees:
+Document the host-driven workflow:
 
 ```markdown
 ## Running Commands in Worktrees
 
-Use `bin/agent-exec` to run commands inside the worktree's container:
+Use `bin/agent-exec` to run commands inside the worktree's container from the host:
 
 ```bash
 bin/agent-exec bin/rails test
-bin/agent-exec bin/ci
-bin/agent-exec bin/rubocop -a
+bin/agent-exec bin/rubocop -f github
+bin/agent-exec bin/rails db:migrate
+```
+
+Start the dev server:
+
+```bash
+bin/agent-server           # or: wt start <branch>
 ```
 ```
 
