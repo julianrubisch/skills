@@ -302,6 +302,11 @@ services:
       # Each worktree uses random ports (APP_PORT=0) to avoid collisions.
       # Primary keeps defaults 3000/3036.
 
+    environment:
+      DB_HOST: postgres
+      SELENIUM_HOST: selenium
+      CAPYBARA_SERVER_PORT: "3001"
+
   postgres:
     image: postgres:17
     environment:
@@ -309,9 +314,21 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
 
+  selenium:
+    image: selenium/standalone-chromium:4.38.0  # pinned, ARM64 compatible
+    shm_size: 2g  # prevents Chrome crashes from insufficient shared memory
+    environment:
+      SE_NODE_SESSION_TIMEOUT: 300
+      SE_SESSION_REQUEST_TIMEOUT: 300
+
 volumes:
   db_data:
 ```
+
+The `rails-app` environment variables make services discoverable by name
+inside the compose network: `DB_HOST=postgres` for database connections,
+`SELENIUM_HOST=selenium` for remote browser, and `CAPYBARA_SERVER_PORT`
+for the test server port.
 
 ### `bin/agent-setup`
 
@@ -658,15 +675,65 @@ config.action_mailer.default_url_options = {
 
 ### Selenium / System Tests
 
-Point Capybara at the workspace Chrome container (Docker strategy only):
+For devcontainer strategies, the Selenium container runs alongside the app.
+Branch on `ENV["SELENIUM_HOST"]` (not `ENV["CI"]`) to detect remote Selenium:
 
 ```ruby
 # test/application_system_test_case.rb
-driven_by :selenium, using: :headless_chromium, screen_size: [1400, 900],
-  options: {
-    browser: :remote,
-    url: "http://localhost:#{ENV.fetch('AGENT_CHROME_PORT', 4444)}/wd/hub"
-  }
+require "test_helper"
+
+SELENIUM_HOST = ENV["SELENIUM_HOST"]
+HOSTNAME = `hostname`.strip
+
+class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
+  if SELENIUM_HOST
+    # Remote Selenium (devcontainer / CI)
+    options = Selenium::WebDriver::Chrome::Options.new
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--headless")
+    options.add_argument("--window-size=1400,1400")
+
+    Capybara.register_driver :remote_chromium do |app|
+      Capybara::Selenium::Driver.new(
+        app,
+        browser: :remote,
+        url: "http://#{SELENIUM_HOST}:4444",
+        options: options
+      )
+    end
+
+    driven_by :remote_chromium
+
+    # The test server must be reachable from the Selenium container
+    Capybara.server_host = "0.0.0.0"
+    Capybara.app_host = "http://#{HOSTNAME}:#{Capybara.server_port}"
+  else
+    # Local development (no container)
+    driven_by :selenium, using: :headless_chrome, screen_size: [1400, 1400]
+  end
+end
+```
+
+Key points:
+- `Capybara.server_host = "0.0.0.0"` makes the test server listen on all
+  interfaces so Selenium can reach it from another container
+- `Capybara.app_host` uses the hostname so Selenium can connect back
+- Pin `selenium/standalone-chromium:4.38.0` (or later) for ARM64 compatibility
+- Set `shm_size: 2g` on the Selenium container to prevent Chrome crashes
+
+### WebMock Configuration
+
+Allow Selenium and localhost connections in test setup:
+
+```ruby
+# test/test_helper.rb
+SELENIUM_HOST = ENV["SELENIUM_HOST"]
+
+WebMock.disable_net_connect!(
+  allow_localhost: true,
+  allow: [SELENIUM_HOST].compact
+)
 ```
 
 ## Active Storage
