@@ -116,6 +116,9 @@ echo "==> Agent workspace: $WORKSPACE"
 
 # Symlink shared resources from main worktree
 ln -sf "$ROOT/.env" .env 2>/dev/null || true
+for envfile in "$ROOT"/.env.*; do
+  [ -f "$envfile" ] && ln -sf "$envfile" "$(basename "$envfile")" 2>/dev/null || true
+done
 ln -sf "$ROOT/.bundle" .bundle 2>/dev/null || true
 ln -sf "$ROOT/node_modules" node_modules 2>/dev/null || true
 
@@ -208,6 +211,9 @@ echo "==> Agent workspace: $WORKSPACE"
 
 # Symlink shared resources from main worktree
 ln -sf "$ROOT/.env" .env 2>/dev/null || true
+for envfile in "$ROOT"/.env.*; do
+  [ -f "$envfile" ] && ln -sf "$envfile" "$(basename "$envfile")" 2>/dev/null || true
+done
 ln -sf "$ROOT/.bundle" .bundle 2>/dev/null || true
 ln -sf "$ROOT/node_modules" node_modules 2>/dev/null || true
 ln -sf "$ROOT/storage" storage 2>/dev/null || true
@@ -369,9 +375,12 @@ WORKTREE_PATH="$(pwd)"
 
 echo "==> Agent workspace: $WORKSPACE"
 
-# Symlink shared resources from main worktree
+# Copy env files (can't symlink — host paths aren't accessible inside the container)
+cp "$ROOT/.env" .env 2>/dev/null || true
+for envfile in "$ROOT"/.env.*; do
+  [ -f "$envfile" ] && cp "$envfile" "$(basename "$envfile")" 2>/dev/null || true
+done
 # Don't symlink node_modules — postCreateCommand installs inside the container
-ln -sf "$ROOT/.env" .env 2>/dev/null || true
 ln -sf "$ROOT/.bundle" .bundle 2>/dev/null || true
 ln -sf "$ROOT/storage" storage 2>/dev/null || true
 
@@ -613,6 +622,9 @@ echo "==> Agent workspace: $WORKSPACE"
 
 # Symlink shared resources from main worktree
 ln -sf "$ROOT/.env" .env 2>/dev/null || true
+for envfile in "$ROOT"/.env.*; do
+  [ -f "$envfile" ] && ln -sf "$envfile" "$(basename "$envfile")" 2>/dev/null || true
+done
 ln -sf "$ROOT/node_modules" node_modules 2>/dev/null || true
 
 # Ensure PG is running (from primary worktree's compose)
