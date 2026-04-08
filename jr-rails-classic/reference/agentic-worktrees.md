@@ -353,7 +353,7 @@ An alternative to passing env vars inline in `wt.toml` is to write a
 [post-create]
 env = """
 cat > .devcontainer/.env << EOF
-COMPOSE_PROJECT_NAME=myapp_{{ branch | sanitize }}
+COMPOSE_PROJECT_NAME=myapp_$(echo '{{ branch | sanitize }}' | tr '.' '_')
 WORKTREE_PATH={{ worktree_path }}
 APP_PORT=0
 VITE_PORT=0
@@ -380,8 +380,9 @@ cp "$ROOT/.env" .env 2>/dev/null || true
 for envfile in "$ROOT"/.env.*; do
   [ -f "$envfile" ] && cp "$envfile" "$(basename "$envfile")" 2>/dev/null || true
 done
+# Copy .bundle (can't symlink — absolute host path doesn't resolve inside the container)
+cp -r "$ROOT/.bundle" .bundle 2>/dev/null || true
 # Don't symlink node_modules — postCreateCommand installs inside the container
-ln -sf "$ROOT/.bundle" .bundle 2>/dev/null || true
 ln -sf "$ROOT/storage" storage 2>/dev/null || true
 
 # Copy credentials (can't symlink — Rails reads relative to config/)
@@ -515,7 +516,7 @@ url = "http://localhost:{{ branch | hash_port }}"
 [post-create]
 env = """
 cat > .devcontainer/.env << EOF
-COMPOSE_PROJECT_NAME=myapp_{{ branch | sanitize }}
+COMPOSE_PROJECT_NAME=myapp_$(echo '{{ branch | sanitize }}' | tr '.' '_')
 WORKTREE_PATH={{ worktree_path }}
 APP_PORT=0
 VITE_PORT=0
@@ -908,6 +909,18 @@ devcontainer features (Node.js, yarn, etc.), `containerEnv` from
 use `devcontainer exec --workspace-folder "$WORKTREE_PATH"` instead of
 `docker compose exec` to pick up `containerEnv` automatically. Cleanup with
 `docker compose down -v` is fine — there's no `devcontainer down`.
+
+**Symlinks to host paths don't resolve inside containers.** Absolute host paths
+(e.g. `/Users/jrubisch/.../myapp/.bundle`) don't exist inside the container
+where the worktree is mounted at `/workspaces/myapp`. Use `cp -r` instead of
+`ln -sf` for `.bundle`, `.env`, and `.env.*` files. Only `storage/` can be
+symlinked because it's mounted via the compose volume.
+
+**Dots in branch names break `COMPOSE_PROJECT_NAME`.** Docker Compose only
+allows lowercase alphanumerics, hyphens, and underscores in project names.
+Dependabot branches like `dependabot/bundler/graphql-2.5.23` contain dots
+after `sanitize` replaces `/` with `-`. Fix: pipe through `tr '.' '_'` when
+constructing the project name.
 
 **`forwardPorts` only works in VS Code.** When using `devcontainer up` from the
 CLI (e.g. for headless agent sessions), `forwardPorts` in `devcontainer.json`
