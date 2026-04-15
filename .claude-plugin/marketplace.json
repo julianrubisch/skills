@@ -1,20 +1,24 @@
 {
   "name": "jr-rails-skills",
   "description": "Rails coding skills: classic style, Phlex components, app scaffolder",
-  "skills": [
+  "owner": {
+    "name": "Julian Rubisch",
+    "email": "info@minthesize.com"
+  },
+  "plugins": [
     {
       "name": "jr-rails-classic",
-      "path": "jr-rails-classic",
+      "source": "./jr-rails-classic",
       "description": "Write Rails code in 37signals/classic style"
     },
     {
       "name": "jr-rails-new",
-      "path": "jr-rails-new",
+      "source": "./jr-rails-new",
       "description": "Scaffold a new Rails app with preferred stack"
     },
     {
       "name": "jr-rails-phlex",
-      "path": "jr-rails-phlex",
+      "source": "./jr-rails-phlex",
       "description": "Write Phlex views and components for Rails"
     }
   ]
