@@ -1,5 +1,6 @@
 {
   "name": "jr-rails-skills",
+  "version": "1.0.0",
   "description": "Rails coding skills: classic style, Phlex components, app scaffolder",
   "owner": {
     "name": "Julian Rubisch",
