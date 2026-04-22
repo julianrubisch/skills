@@ -170,6 +170,41 @@ Two classes know too much about each other's internals.
 **Signal:** Class A reaches into Class B's associations or private state directly.
 Often indicates a missing abstraction between them.
 
+### Type-Checking Dispatch
+Branching on an object's class outside of `app/models/` — the code is doing
+the object's job instead of asking the object to do it.
+
+```ruby
+# Smell: controller branches on type to build a URL
+case item
+when Project then project_path(item)
+when Task    then project_task_path(item.project, item)
+when Comment then polymorphic_path(item.commentable, anchor: dom_id(item))
+end
+
+# Better: presenter on each type owns its URL
+item.presenter.path
+```
+
+**Signal:**
+- `is_a?(...)`, `kind_of?(...)`, `.class == ...` in any file outside `app/models/`
+- `case obj; when Foo` dispatching to different behavior per type
+- More than one `if X.is_a?` branch on the same variable in the same method
+
+**Where to push the behavior:**
+
+| Where the behavior belongs | Push it to |
+|----------------------------|------------|
+| Pure domain logic (validation, state transitions, computed data) | Concern on the model |
+| View/URL/formatting concern (what `url_helpers`, `helpers` touches) | Presenter (see `patterns.md § Presenters`) |
+| Behavior varies on a persisted attribute, not the class itself | `delegated_type` or state machine |
+
+**Fix:** [Replace Conditional with Polymorphism](refactorings/002-replace-conditional-with-polymorphism.md) —
+see § "Where to Put the Extracted Behavior" for the decision table.
+
+**Principle:** LSP — if code checks `is_a?` before calling a method, the
+subtype contract is broken. See `shared/principles.md § Liskov Substitution`.
+
 ### Case Statement
 A `case` with many `when` branches handling unrelated behavior. Attractive
 for assembling all conditions in one place, but becomes a maintenance burden.

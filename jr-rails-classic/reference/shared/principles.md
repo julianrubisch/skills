@@ -115,7 +115,7 @@ Review agents use this table to cite the violated principle when flagging a smel
 | SRP | Divergent Change, Large Class, Callback |
 | DIP | Feature Envy, Inappropriate Intimacy |
 | OCP | Case Statement, Long Case Statement |
-| LSP | Case Statement, Refused Bequest |
+| LSP | Case Statement, Refused Bequest, Type-Checking Dispatch |
 | ISP | Large Class, God Class, Feature Envy |
 | Law of Demeter | Inappropriate Intimacy, Feature Envy |
 | DRY | Shotgun Surgery, Divergent Change |

@@ -21,9 +21,28 @@ Presentation → Application → Domain → Infrastructure
 
 Data flows from top to bottom only. Arrows in the architecture always point downward.
 
-### Rule 2: No Reverse Dependencies
+### Rule 2: No Reverse Dependencies (The Abstraction Ladder)
 
-Lower layers must not depend on higher layers. A domain object should never depend on a controller or request object.
+Lower layers must not depend on higher layers. Behavior lives at the lowest
+tier that can express it without lying:
+
+```
+model  →  presenter  →  component/view  →  controller
+(pure)   (+ url/format)   (+ markup)       (+ params/auth/flow)
+```
+
+Each rung adds capabilities the rung below doesn't have. Using a capability
+from a higher rung is a lie — URL helpers in a model lie (models don't serve
+HTTP). `is_a?` dispatch in a controller lies (controllers don't own domain
+taxonomy). The smell is a **mis-tiered method**.
+
+When you find behavior at the wrong tier, push it down:
+
+| Where the behavior belongs | Push it to |
+|----------------------------|------------|
+| Pure domain logic (validation, state transitions, computed data) | Concern on the model |
+| View/URL/formatting concern (what `url_helpers`, `helpers` touches) | Presenter |
+| Behavior varies on a persisted attribute, not the class itself | `delegated_type` or state machine |
 
 **Violations:**
 
@@ -58,6 +77,7 @@ belongs_to :creator, default: -> { Current.user }  # Fine — convention
 ```
 
 See `smells.md § Current in Models` for the full signal definition.
+See `smells.md § Type-Checking Dispatch` for `is_a?`/`kind_of?` violations.
 
 ### Rule 3: Abstraction Boundaries
 
