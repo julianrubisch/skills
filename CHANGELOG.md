@@ -6,6 +6,15 @@ release notes on julianrubisch/skills.
 
 ## Unreleased
 
+## v1.1.0
+
+- Add **jr-rails-second-opinion** skill: get a Rails-flavored second opinion on
+  a branch, PR, or working tree by delegating to a locally-installed agentic
+  CLI (codex, opencode, gemini, aider, mods, cursor-agent, llm, goose). Probes
+  `$PATH` first, asks the user which CLI to use, then runs a structured
+  Self-Review → External Review → Reconcile → Synthesize loop with H/M/L
+  severity gating. Self-contained: no MCP server required.
+
 ## v1.0.1
 
 - Add "Type-Checking Dispatch" smell with detection signals and decision table

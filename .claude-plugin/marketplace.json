@@ -1,6 +1,6 @@
 {
   "name": "jr-rails-skills",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Rails coding skills: classic style, Phlex components, app scaffolder",
   "owner": {
     "name": "Julian Rubisch",
@@ -21,6 +21,11 @@
       "name": "jr-rails-phlex",
       "source": "./jr-rails-phlex",
       "description": "Write Phlex views and components for Rails"
+    },
+    {
+      "name": "jr-rails-second-opinion",
+      "source": "./jr-rails-second-opinion",
+      "description": "Get a Rails-flavored second opinion on a branch, PR, or working tree by delegating to a locally-installed agentic CLI (codex, opencode, gemini, aider, etc.)"
     }
   ]
 }

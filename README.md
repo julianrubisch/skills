@@ -23,6 +23,7 @@ Or via the plugin marketplace:
 | `jr-rails-classic` | Write Rails code in 37signals/classic style — rich models, CRUD controllers, concerns, state-as-records, Minitest with fixtures |
 | `jr-rails-new` | Scaffold a new Rails app with preferred stack — interactive interview, then `rails new` + full post-scaffold configuration |
 | `jr-rails-phlex` | Write Phlex views and components for Rails — class hierarchy, slots, helpers, custom elements, scaffold generator |
+| `jr-rails-second-opinion` | Get a Rails-flavored second opinion on a branch, PR, or working tree by delegating to a locally-installed agentic CLI (codex, opencode, gemini, aider, mods, …). Self-contained: no MCP server required |
 
 ## jr-rails-classic
 
@@ -94,6 +95,34 @@ Covers:
 - Frontend integration: Stimulus, Turbo Frames/Streams, Pagy
 - ERB partials for forms (pragmatic escape hatch)
 - Fragment caching
+
+## jr-rails-second-opinion
+
+Delegates a Rails-flavored review to a locally-installed agentic CLI. Wraps
+the chosen CLI in a structured Self-Review → External Review → Reconcile →
+Synthesize loop with H/M/L severity gating. Self-contained: no MCP server.
+
+**Invoke:**
+
+- `/jr-rails-second-opinion` (review uncommitted changes; default)
+- `/jr-rails-second-opinion <branch>` (review the branch diff vs main)
+- `/jr-rails-second-opinion <PR#>` (fetch the PR with `gh`, review the diff)
+- `/jr-rails-second-opinion --multi` (run review through 2+ CLIs in parallel and reconcile)
+
+Phase 0 is CLI discovery. The skill probes `$PATH` for known agentic CLIs and
+asks you which to use. Default detection list:
+
+`codex` · `opencode` · `gemini` · `aider` · `mods` · `cursor-agent` · `llm` · `goose`
+
+Per-CLI invocation patterns live in `references/cli-invocations.md` and are
+edit-friendly (extend with new CLIs as they ship).
+
+The brief passed to the chosen CLI bakes in jr-rails-skills' Rails-flavored
+review dimensions (architecture, quality, performance, testing, security)
+plus the hard rule against service-object suggestions. Output is a working
+log (`second-opinion.md`) with rounds, reconciliation tables, gate status,
+mediator approval, and final attestation. Deleted after attestation; the
+improved artifact is the deliverable, not the log.
 
 ## Reference Library
 
