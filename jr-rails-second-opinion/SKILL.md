@@ -2,8 +2,8 @@
 name: jr-rails-second-opinion
 description: >-
   Get a Rails-flavored second opinion on a branch, PR, or working tree by
-  delegating to a locally-installed agentic CLI (codex, opencode, gemini,
-  aider, etc.). Self-contained: no MCP server required.
+  delegating to a locally-installed agentic CLI (claude, codex, opencode,
+  gemini, aider, etc.). Self-contained: no MCP server required.
 triggers:
   # Direct invocations
   - /jr-rails-second-opinion
@@ -19,6 +19,7 @@ triggers:
   - use opencode to review
   - use gemini to review
   - use aider to review
+  - use claude to review
   # Generic phrasing
   - second opinion on this branch
   - external Rails review
@@ -51,7 +52,7 @@ Read `@references/guide.md` and follow it. Do not proceed without it.
 Probe `$PATH` for installed agentic CLIs. Default detection list (extend in `references/cli-invocations.md`):
 
 ```bash
-for cmd in codex opencode gemini aider mods cursor-agent llm sgpt goose; do
+for cmd in claude codex opencode gemini aider mods cursor-agent llm sgpt goose; do
   path=$(command -v "$cmd" 2>/dev/null) || continue
   echo "$cmd -> $path"
 done

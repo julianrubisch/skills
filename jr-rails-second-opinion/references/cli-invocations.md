@@ -6,6 +6,33 @@ To add a new CLI: append a section below, then update the detection loop in `SKI
 
 ---
 
+## claude (Anthropic Claude Code CLI)
+
+Use when this skill is invoked from a non-Claude harness (codex, opencode, etc.) and you want Claude as the external reviewer. Run as a one-shot, headless prompt.
+
+```bash
+# Pipe diff into a one-shot Claude run
+git diff "$BASE"..."$HEAD" | claude -p "$(cat <<EOF
+$BRIEF
+
+Review the diff on stdin. Output H/M/L findings only. Do not edit files.
+EOF
+)"
+```
+
+Flags:
+- `-p` / `--print` runs non-interactively and prints the response to stdout.
+- Add `--model claude-sonnet-4-6` (or another model id) to pin the reviewing model — keep it different from whatever ran the work to maximize the value of the second opinion.
+- Add `--permission-mode plan` (or `--allowed-tools` empty) to prevent the reviewing instance from writing files. The brief instructs no edits; the flag is belt-and-suspenders.
+
+**Auth:** `claude` uses your existing Anthropic account / API key. No extra setup if Claude Code is already installed.
+
+**Output:** Markdown to stdout.
+
+**Self-review caveat:** if Claude is also the implementer, running Claude as the external reviewer collapses the value of the loop. Prefer a different vendor when possible; reserve `claude` as the reviewer for runs originating outside Claude Code.
+
+---
+
 ## codex (OpenAI Codex CLI)
 
 Codex has a built-in `review` subcommand. Use it directly.

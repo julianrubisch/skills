@@ -6,6 +6,12 @@ release notes on julianrubisch/skills.
 
 ## Unreleased
 
+## v1.1.1
+
+- Add `claude` (Anthropic Claude Code CLI) as a supported reviewer in
+  jr-rails-second-opinion. Useful when the skill is invoked from a non-Claude
+  harness (codex, opencode, etc.) and Claude itself is the external lens.
+
 ## v1.1.0
 
 - Add **jr-rails-second-opinion** skill: get a Rails-flavored second opinion on

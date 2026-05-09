@@ -20,7 +20,7 @@ Both the implementer self-review and the CLI external review label findings with
 
 - **Implementer**: the agent doing the Rails work. Also self-reviews. Proposes synthesis; does not approve design decisions.
 - **Mediator**: the human (you). Approves synthesis, reconciles disagreements, decides what changes. All design decisions require explicit approval.
-- **Expert**: the chosen agentic CLI (codex, opencode, gemini, aider, etc.). Independent external lens.
+- **Expert**: the chosen agentic CLI (claude, codex, opencode, gemini, aider, etc.). Independent external lens. When this skill is invoked from a non-Claude harness (e.g. running inside codex), `claude` itself becomes a valid expert target.
 
 Critical: the implementer must STOP and escalate to the mediator when design decisions arise. The implementer writes synthesis proposals; the mediator owns final decisions.
 
@@ -41,7 +41,7 @@ Implementer + 2+ CLIs running in parallel. Use for high-stakes artifacts where d
 Before any review, probe `$PATH` for installed agentic CLIs:
 
 ```bash
-for cmd in codex opencode gemini aider mods cursor-agent llm sgpt goose; do
+for cmd in claude codex opencode gemini aider mods cursor-agent llm sgpt goose; do
   path=$(command -v "$cmd" 2>/dev/null) || continue
   echo "$cmd -> $path"
 done
