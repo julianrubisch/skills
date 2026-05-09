@@ -38,20 +38,40 @@ Implementer + 2+ CLIs running in parallel. Use for high-stakes artifacts where d
 
 ## Phase 0: CLI Discovery (Required)
 
-Before any review, probe `$PATH` for installed agentic CLIs:
+Before any review, probe for installed agentic CLIs. **Do not rely on `$PATH` or `$SHELL`** — Claude Code's Bash tool spawns a non-login shell, so PATH entries from `~/.config/fish/config.fish`, `~/.zshrc`, asdf/mise/volta shims, or `npm`/`bun`/`pnpm`/`cargo` global bin dirs are invisible. And `$SHELL` is unreliable: macOS users who run fish often have `$SHELL=/bin/zsh` because the user record defaults to zsh and they `exec fish` from `.zshrc`. Probe every installed shell, merge their login PATHs, augment with common install dirs:
 
 ```bash
+# 1. Probe every installed user shell and merge their login PATHs.
+PATHS_TO_TRY=()
+for sh in fish zsh bash; do
+  command -v "$sh" >/dev/null 2>&1 || continue
+  case "$sh" in
+    fish) p=$("$sh" -l -c 'string join : -- $PATH' 2>/dev/null) ;;
+    *)    p=$("$sh" -l -c 'printf %s "$PATH"' 2>/dev/null) ;;
+  esac
+  [ -n "$p" ] && PATHS_TO_TRY+=("$p")
+done
+LOGIN_PATH=$(IFS=:; echo "${PATHS_TO_TRY[*]}")
+[ -z "$LOGIN_PATH" ] && LOGIN_PATH="$PATH"
+
+# 2. Augment with common install dirs not always exported to PATH.
+EXTRA_DIRS="$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/.bun/bin:$HOME/.cargo/bin:$HOME/.deno/bin:$HOME/.asdf/shims:$HOME/.mise/shims:$HOME/Library/pnpm:/opt/homebrew/bin:/usr/local/bin"
+SEARCH_PATH="$LOGIN_PATH:$EXTRA_DIRS"
+
+# 3. Probe each candidate binary.
 for cmd in claude codex opencode gemini aider mods cursor-agent llm sgpt goose; do
-  path=$(command -v "$cmd" 2>/dev/null) || continue
-  echo "$cmd -> $path"
+  bin=$(PATH="$SEARCH_PATH" command -v "$cmd" 2>/dev/null) || continue
+  echo "$cmd -> $bin"
 done
 ```
 
 Then call `AskUserQuestion`:
 
-- **0 detected**: STOP. Tell the mediator no agentic CLI is on `$PATH` and suggest installing one (`brew install codex`, `npm i -g opencode-ai`, `pip install aider-chat`, etc.).
+- **0 detected**: do **not** immediately give up. Ask the mediator whether (a) a CLI is installed at a known path you should use directly (use the "Other" answer to capture an absolute path), or (b) you should install one. Only escalate to install instructions (`brew install codex`, `npm i -g opencode-ai`, `pip install aider-chat`) after the mediator confirms nothing is installed.
 - **1 detected**: confirm it as the choice (single-option `AskUserQuestion`).
 - **2+ detected**: list as options. Add an "all (multi mode)" option iff `--multi` was passed.
+
+When invoking the chosen CLI in later phases, prefix the command with `PATH="$SEARCH_PATH"` (or use the absolute path captured during discovery) so the binary remains resolvable.
 
 Record the chosen CLI in the working log under `## Reviewers`.
 

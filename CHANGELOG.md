@@ -6,6 +6,18 @@ release notes on julianrubisch/skills.
 
 ## Unreleased
 
+## v1.1.2
+
+- Harden CLI discovery in jr-rails-second-opinion. Don't trust `$PATH`
+  or `$SHELL` (the latter often reports `/bin/zsh` for macOS users who
+  actually run fish via `exec fish` from `.zshrc`). Probe every
+  installed user shell (fish, zsh, bash), merge their login PATHs,
+  and augment with common install dirs (asdf/mise shims,
+  npm/bun/pnpm/cargo/deno global bins, `/opt/homebrew/bin`,
+  `~/.local/bin`). Reuse the resolved PATH when invoking the chosen
+  CLI. On 0 detections, ask the mediator for an explicit binary path
+  before suggesting an install.
+
 ## v1.1.1
 
 - Add `claude` (Anthropic Claude Code CLI) as a supported reviewer in
