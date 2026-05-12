@@ -1,7 +1,7 @@
 {
   "name": "jr-rails-skills",
-  "version": "1.1.2",
-  "description": "Rails coding skills: classic style, Phlex components, app scaffolder",
+  "version": "1.2.0",
+  "description": "Rails coding skills: classic style, Phlex components, app scaffolder, Mac bootstrap",
   "owner": {
     "name": "Julian Rubisch",
     "email": "info@minthesize.com"
@@ -26,6 +26,11 @@
       "name": "jr-rails-second-opinion",
       "source": "./jr-rails-second-opinion",
       "description": "Get a Rails-flavored second opinion on a branch, PR, or working tree by delegating to a locally-installed agentic CLI (codex, opencode, gemini, aider, etc.)"
+    },
+    {
+      "name": "jr-rails-bootstrap",
+      "source": "./jr-rails-bootstrap",
+      "description": "One-time Mac bootstrap from blank dev environment to a running Rails app. Installs Xcode CLT, Homebrew, mise, Ruby, Node, gh/glab, the jr-rails skills pack, then delegates to jr-rails-new"
     }
   ]
 }

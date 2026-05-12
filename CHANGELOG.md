@@ -6,6 +6,28 @@ release notes on julianrubisch/skills.
 
 ## Unreleased
 
+## v1.2.0
+
+- Add **jr-rails-bootstrap** skill: one-time Mac bootstrap from a blank
+  dev environment to a Rails app running in the browser. Conversational
+  interview + automated execution, idempotent prereq checks (Xcode CLT,
+  Homebrew, mise, Ruby 4.0, Node 22), git hosting CLI setup
+  (gh and/or glab) with a separate-Terminal-tab auth handoff, skills
+  pack install, and delegation to jr-rails-new for app generation.
+  Pedagogical voice for non-technical users. Writes
+  `SETUP_SUMMARY.md` as an audit trail.
+- **jr-rails-new** improvements wired in alongside bootstrap:
+  - Add **Step 0: Preflight**. Probes ruby/node/bundle/mise versions
+    and offers to hand off to `/jr-rails-bootstrap` if anything is
+    missing or out of date, instead of failing at `rails new` with a
+    confusing error.
+  - **CLAUDE.md template** now includes a load-bearing
+    `## How to start` section, derived from the actual stack choices
+    (default / vite / devcontainer / worktree). `/jr-rails-bootstrap`
+    Phase G reads this to know how to launch the dev server.
+  - **Final summary** prints a start command that matches the
+    generated CLAUDE.md instead of hardcoding `bin/dev`.
+
 ## v1.1.2
 
 - Harden CLI discovery in jr-rails-second-opinion. Don't trust `$PATH`

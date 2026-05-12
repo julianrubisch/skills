@@ -12,6 +12,47 @@ the right flags, and performs post-scaffold configuration.
 
 ## Workflow
 
+### Step 0: Preflight
+
+Quick check that the machine can actually run `rails new`. Skip the install
+prompts if everything is present.
+
+```bash
+command -v ruby   >/dev/null 2>&1 && ruby --version
+command -v node   >/dev/null 2>&1 && node --version
+command -v bundle >/dev/null 2>&1 && bundle --version
+command -v mise   >/dev/null 2>&1 && mise --version
+```
+
+Required:
+
+- Ruby **4.0 or newer** (parse `ruby --version`; reject 3.x and older).
+- Node **20 or newer**.
+- `bundle` available (ships with Ruby).
+- `mise` (or `rbenv` / `asdf`) so the Ruby/Node we just probed survives a
+  shell restart and matches `.tool-versions` later.
+
+If anything's missing or out of date, surface the gap and offer to hand off:
+
+```
+This Mac isn't quite ready for `rails new` yet:
+  ✗ Ruby is <version> (need 4.0+)
+  ✗ Node not found
+  ✓ mise installed
+
+I can run /jr-rails-bootstrap to fix that - it installs the missing pieces
+in the right order, then comes back here. Or you can install them manually
+and re-run me.
+
+Want me to launch /jr-rails-bootstrap?
+```
+
+Use `AskUserQuestion` with options `Yes, run bootstrap`, `No, I'll install manually`,
+`Continue anyway (rails new may fail)`. If they pick bootstrap, invoke
+`/jr-rails-bootstrap` and stop - bootstrap will return them here via Phase E.
+
+If everything passes, print one line per tool with version and continue.
+
 ### Step 1: Interview
 
 Ask the user each question. Show the default in brackets. Accept the default
@@ -136,7 +177,10 @@ config.active_job.queue_adapter = :sidekiq
 
 #### 3f. CLAUDE.md
 
-Create `CLAUDE.md` in the app root with project conventions:
+Create `CLAUDE.md` in the app root with project conventions. The **How to
+start** section is load-bearing: `/jr-rails-bootstrap` and future agents read
+it to know how to launch the dev server. Derive its command from the actual
+stack choices (Q#3 bundling, Q#6 devcontainer, Q#10 worktree).
 
 ```markdown
 # Project Conventions
@@ -148,6 +192,37 @@ Create `CLAUDE.md` in the app root with project conventions:
 - [View layer]
 - Minitest with fixtures
 
+## How to start
+
+[Pick ONE block based on the stack choices made in the interview:]
+
+### Default (no devcontainer, no worktree)
+\`\`\`bash
+bin/dev
+\`\`\`
+App: http://localhost:3000
+
+### Vite (Q#3 = vite_rails) without devcontainer
+\`\`\`bash
+bin/dev   # foreman runs Rails + Vite together via Procfile.dev
+\`\`\`
+App: http://localhost:3000
+Vite dev server: http://localhost:5173
+
+### Devcontainer (Q#6 = yes)
+\`\`\`bash
+devcontainer up --workspace-folder .
+devcontainer exec --workspace-folder . bin/dev
+\`\`\`
+App: http://localhost:3000
+
+### Worktree workflow (Q#10 = yes)
+Use the wt-managed binstub - port and database are derived per branch.
+\`\`\`bash
+wt start             # equivalent to: bin/agent-server
+\`\`\`
+App URL: see \`wt list\` for the branch's port (e.g. http://localhost:30421).
+
 ## Testing
 - Run tests: `bin/rails test`
 - Run system tests: `bin/rails test:system`
@@ -155,15 +230,20 @@ Create `CLAUDE.md` in the app root with project conventions:
 ## Style
 - Follow 37signals/classic Rails conventions
 - Rich domain models, CRUD controllers, concerns
-- No service objects — use domain models in app/models/
+- No service objects - use domain models in app/models/
 - Minitest with fixtures (no RSpec, no factory_bot)
 - Database constraints over model validations for hard guarantees
 
 ## Skills
-- `/jr-rails-classic` — coding style guide
-[- `/jr-rails-phlex` — Phlex components (if Phlex selected)]
-- `/jr-rails-review` — code review
+- `/jr-rails-classic` - coding style guide
+[- `/jr-rails-phlex` - Phlex components (if Phlex selected)]
+- `/jr-rails-review` - code review
 ```
+
+Pick exactly **one** "How to start" block based on the interview answers and
+write that block (not the multi-choice template) into the project CLAUDE.md.
+The skill should resolve the right command at scaffold time, not punt the
+choice to a future reader.
 
 #### 3g. Worktree config (if selected)
 
@@ -260,7 +340,9 @@ git commit -m "Initial Rails app with [stack summary]"
 
 ### Step 4: Summary
 
-Print a summary of what was configured:
+Print a summary of what was configured. **Derive the "Next steps" command
+from the same logic as the CLAUDE.md "How to start" block** - they must
+match.
 
 ```
 ✅ Rails app created: APP_NAME
@@ -271,11 +353,27 @@ Print a summary of what was configured:
    Authorization:  pundit
    Background:     solid_queue
    Dev container:  yes
+   Worktree:       no
    Testing:        minitest (always)
 
 Next steps:
   cd APP_NAME
-  bin/dev
+  <START_COMMAND>
+```
+
+Where `<START_COMMAND>` matches the chosen stack:
+
+| Stack                          | Command                                             |
+|--------------------------------|-----------------------------------------------------|
+| Default                        | `bin/dev`                                           |
+| Vite (no devcontainer)         | `bin/dev` (foreman runs Rails + Vite)               |
+| Devcontainer                   | `devcontainer up --workspace-folder . && devcontainer exec --workspace-folder . bin/dev` |
+| Worktree workflow              | `wt start` (per-branch port; see `wt list`)         |
+
+Then add the app URL on the next line:
+
+```
+App:  http://localhost:3000   # or the worktree-specific port
 ```
 
 ## Reference
