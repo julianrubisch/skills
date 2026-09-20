@@ -94,7 +94,7 @@ Determine review scope:
 
 ### 3. Brief Construction
 
-Build the brief passed to the CLI. Force the H/M/L severity rubric and the five Rails-flavored review dimensions: architecture (skinny controllers, rich models, callback design), quality (Ruby idiom, naming, anti-patterns), performance (N+1, indexes, eager loading), testing (coverage, integration/unit balance), security (strong params, mass assignment, Brakeman class issues). Include the project's hard rule: **never recommend service objects as a solution**.
+Build the brief passed to the CLI. Force the H/M/L severity rubric and the five Rails-flavored review dimensions: architecture (skinny controllers, rich models, callback design), quality (Ruby idiom, naming, anti-patterns), performance (N+1, indexes, eager loading), testing (coverage, integration/unit balance), security (strong params, mass assignment, Brakeman class issues). Include the project's hard rule: **never recommend service objects as a solution**, and paste the Brief block from `references/standards.md` verbatim so the CLI judges by the same conventions the self-review uses.
 
 See `references/guide.md` for the full brief template.
 
@@ -116,9 +116,11 @@ Delete the working log (`second-opinion.md`) after final attestation. The improv
 
 ## Hard Rules
 
-**Inherit from jr-rails-review:** never recommend service objects (`*Service`, `*Manager`, `*Handler`, `*Processor`, `*Creator`, `.call` PORO patterns). Pass this rule into the second-opinion CLI's brief so it doesn't suggest them either. When extraction is needed, prefer domain models, form objects, query objects, concerns, DCI contexts, or callback extraction.
+**Judge by the pack's standards, not the CLI's taste.** `references/standards.md` lists, per dimension, what a finding is measured against and links the shared reference that explains it (`reference/shared/*.md`, `smells.md`, `patterns.md`, `refactorings/`). Its Brief block goes into every CLI brief verbatim; in Reconcile, a CLI finding that contradicts a standard is dropped with the standard cited, and a finding a standard supports is kept even when self-review missed it. The first standard is the hard one: never recommend service objects (`*Service`, `*Manager`, `*Handler`, `*Processor`, `*Creator`, `.call` PORO patterns). When extraction is needed, prefer domain models, form objects, query objects, concerns, DCI contexts, or callback extraction.
 
 **Never act on a CLI finding without mediator approval.** The CLI is a signal generator, not a judge. Decisions stay with the human.
+
+**The brief must demand the findings as the final message.** Reasoning models will otherwise spend a whole run thinking and return nothing — a clean exit, a full log, an empty output file. The constraint is in `references/guide.md`'s brief template; keep it when adapting the brief, and see `references/cli-invocations.md` for recovering a run that failed this way rather than paying for it twice.
 
 **Do not pipe secrets to the CLI.** Brief construction must scrub `.env`, `config/credentials/*`, and any file Brakeman flags as containing secrets.
 
@@ -130,6 +132,7 @@ jr-rails-second-opinion/
 └── references/
     ├── guide.md                   # Workflow detail (load when starting a session)
     ├── cli-invocations.md             # Per-CLI invocation patterns + flags (load when picking a CLI)
+    ├── standards.md                   # What findings are judged against, per dimension, linked into reference/ (load once per session)
     └── second-opinion-log-template.md # Working-log skeleton (copy when starting a session)
 ```
 

@@ -6,6 +6,37 @@ release notes on julianrubisch/skills.
 
 ## Unreleased
 
+## v1.3.0
+
+- Add **jr-rails-pr-tour** skill: turn a large Rails PR or MR into a guided
+  reading order. Filters noise, assigns a Rails layer per file, derives
+  dependency edges between changed files (constants, associations,
+  controller-to-view and test-to-subject conventions), clusters them into
+  named chapters, and annotates each file with a churn-x-complexity risk
+  badge from `attractor diff` (flog or diff-size fallbacks). Publishes an
+  artifact whose links drive the PR diff in a second, reused browser tab
+  via GitHub/GitLab file anchors; optional `--comment` posts a markdown
+  version. GitHub and GitLab, via `gh` and `glab`.
+- **jr-rails-second-opinion**: add `references/standards.md`, the per-dimension
+  standards a finding is judged against, each linked to the shared
+  reference that explains it (`reference/shared/*.md`, `smells.md`,
+  `patterns.md`, `refactorings/`). Its Brief block goes into every CLI brief
+  so the external reviewer judges by the pack's conventions; Reconcile
+  drops CLI findings that contradict a standard and keeps those a standard
+  supports, citing it.
+- **jr-rails-second-opinion**: fill in the opencode invocation
+  (`--format json`, `--print-logs`) and document its three silent-failure
+  modes with discriminators and fixes: tools denied by config (hangs at
+  init), a standalone `OPENCODE_CONFIG` that replaces rather than merges
+  the user's config and drops `provider`/`mcp`/`plugin` (build the override
+  with `jq` from a copy instead), and a final turn spent entirely in
+  reasoning (exits 0 with empty output; findings recoverable from the
+  session store). Smoke tests must use a tool.
+- **jr-rails-second-opinion**: two more opencode failure signatures: a
+  backgrounded run waits forever on an inherited stdin pipe (launch with
+  `< /dev/null`), and provider quota or disabled-model errors that only
+  show in the `--print-logs` `.err` output.
+
 ## v1.2.0
 
 - Add **jr-rails-bootstrap** skill: one-time Mac bootstrap from a blank

@@ -1,6 +1,6 @@
 {
   "name": "jr-rails-skills",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Rails coding skills: classic style, Phlex components, app scaffolder, Mac bootstrap",
   "owner": {
     "name": "Julian Rubisch",
@@ -26,6 +26,11 @@
       "name": "jr-rails-second-opinion",
       "source": "./jr-rails-second-opinion",
       "description": "Get a Rails-flavored second opinion on a branch, PR, or working tree by delegating to a locally-installed agentic CLI (codex, opencode, gemini, aider, etc.)"
+    },
+    {
+      "name": "jr-rails-pr-tour",
+      "source": "./jr-rails-pr-tour",
+      "description": "Turn a large Rails PR or MR into a guided reading order: chapters of related files ordered by layer and dependency, with churn-x-complexity risk badges, published as an artifact that drives the diff in a second tab. GitHub and GitLab"
     },
     {
       "name": "jr-rails-bootstrap",

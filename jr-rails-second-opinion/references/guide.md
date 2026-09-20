@@ -75,6 +75,54 @@ When invoking the chosen CLI in later phases, prefix the command with `PATH="$SE
 
 Record the chosen CLI in the working log under `## Reviewers`.
 
+### Phase 0b: Smoke-test the plumbing (Required)
+
+Before building a brief or running a review, prove the chosen CLI can produce output at all from a
+non-interactive shell:
+
+```bash
+<cli> <one-shot-flags> "Reply with exactly: PLUMBING OK"
+```
+
+This costs seconds and saves a whole cycle. CLIs hang or die silently when invoked from an agent
+harness, and a silent empty output file is indistinguishable from "still thinking." Observed:
+`opencode run` hanging at `init` with zero output; `gemini -p` dying in `setupUser` auth.
+
+**The smoke test must USE A TOOL.** This is the single most important line in this file. A prompt like
+"Reply with exactly: PLUMBING OK" proves only that the CLI can talk to a model. A review has to read
+the diff, and on a machine where the CLI's config denies `read`/`grep`/`bash` — a lean-ctx-style
+setup does exactly that, deliberately — a tool-less prompt sails through while every real review
+hangs forever with no output, no session, and a 0-byte file.
+
+```bash
+<cli> <one-shot-flags> "Run 'git rev-parse --abbrev-ref HEAD' and reply with exactly: BRANCH=<name>"
+```
+
+Before that, check the CLI's permission config directly (`ls ~/.config/opencode/` first — the file is
+`opencode.json` *or* `opencode.jsonc`, and grepping the wrong name returns a confident, wrong "no
+permission block"). If tools are denied, override for the run only — never edit the user's config.
+`cli-invocations.md` has the `OPENCODE_CONFIG` recipe, which doubles as the no-write guarantee by
+denying `edit`/`write`/`patch` in the same override. Build that override by merging into a copy of
+the real config: `OPENCODE_CONFIG` replaces rather than merges, and a standalone file takes the
+user's `provider`/`mcp`/`plugin` blocks down with it — which hangs tool-using runs while leaving
+toolless smoke tests passing.
+
+Then run the tool-using smoke test from the project directory. If it works, proceed. If it hangs
+while an empty directory works, suspect the project's config, not the CLI. If it hangs everywhere,
+escalate: in Claude Code the mediator can run the same command prefixed with `!` in their own terminal
+and paste the result back.
+
+**A silent hang almost never means what you first think.** In one session the following were each
+tried and each ruled out by controlled test before the real cause (denied tools) surfaced:
+`--format json`, `--pure`, `--dangerously-skip-permissions`, a pty wrapper, moving `.mcp.json` aside,
+and cold-start indexing. Two of those produced a *convincing* false positive because the tool-less
+smoke test being used to verify them passed for unrelated reasons. Change one variable at a time and
+re-test the negative case before believing a fix.
+
+Also verify the model id resolves before the real run (`opencode models <provider>`, `llm models`,
+etc.). A shortened id like `openrouter/kimi-k3` in place of `openrouter/moonshotai/kimi-k3` fails
+slowly rather than loudly.
+
 For invocation patterns per CLI, load `cli-invocations.md`.
 
 ---
@@ -112,13 +160,19 @@ Each round has four steps: Self-Review → External Review → Reconcile → Syn
 ### Step 0: Self-Review (Implementer)
 Before invoking the CLI, the implementer reviews their own work with a fresh, critical eye. Produce H/M/L findings, no softball.
 
-The Rails dimensions to scan against:
+The Rails dimensions to scan against, each judged by the standards in
+`standards.md` (read it once per session; it links the shared references
+that carry the rationale):
 
 - **Architecture**: skinny controllers, rich domain models, no service objects, callbacks scored, concerns over-applied.
 - **Quality**: idiomatic Ruby, naming, dead code, redundant abstractions, anti-patterns from Ruby Science.
 - **Performance**: N+1, missing indexes, eager-load opportunities, query object candidates, cache strategy.
 - **Testing**: coverage of new code, integration vs unit balance, fixture/factory hygiene, system test smell.
 - **Security**: strong params, mass assignment, escape sites, Brakeman class warnings, auth boundaries.
+
+Cite the standard next to each finding ("callbacks: operation in
+`after_create`, `shared/callbacks.md`"). A finding you cannot tie to a
+standard or to a concrete defect is an opinion; label it L or drop it.
 
 ### Step A: External Review (CLI)
 
@@ -144,6 +198,10 @@ CONSTRAINTS:
   context, callback extraction.
 - Avoid generic advice the diff already implies.
 - Do not edit files. This is a review, not a refactor.
+- WRITE THE FINDINGS AS YOUR FINAL MESSAGE. Think briefly, then answer. Do not
+  spend your last turn reasoning silently — a run that ends with a long internal
+  analysis and no text output is a wasted run. If you are running long, write
+  what you have.
 
 DIMENSIONS to consider (Rails-flavored):
 - Architecture (skinny controllers, rich models, callback design)
@@ -151,6 +209,12 @@ DIMENSIONS to consider (Rails-flavored):
 - Performance (N+1, indexes, eager loading)
 - Testing (coverage, integration/unit balance)
 - Security (strong params, mass assignment, Brakeman class issues)
+
+STANDARDS: <paste the Brief block from standards.md here, verbatim>
+Reference files you may read for the rationale (read-only):
+<absolute paths of reference/shared/callbacks.md, architecture.md,
+security.md, and any other file standards.md names for the dimensions in
+scope; resolve with realpath from the skill directory>
 
 OUTPUT FORMAT:
 1. Findings (ordered by severity, H first), each labeled H/M/L with file:line citation
@@ -173,6 +237,14 @@ Compare self-review and CLI findings. Produce a reconciliation table:
 | ... | Found H | Disagrees | Steelman both, escalate |
 
 Where self-review and CLI disagree, steelman both perspectives. If the disagreement is a design tradeoff, escalate per the trigger list below.
+
+Apply the standards before steelmanning: a CLI finding that contradicts one
+(recommends a service object, factories, a callback that sends mail, inline
+authorization) is dropped in this step with the standard cited as the
+reason, not carried into the synthesis as a disagreement. A CLI finding that
+a standard supports is kept even when self-review missed it, and the
+synthesis cites the standard. The standards are the tiebreaker; the
+mediator is the tiebreaker for everything the standards do not cover.
 
 ### Step C: Synthesize (Implementer Proposes, Mediator Approves)
 
@@ -319,7 +391,13 @@ echo "13) Attestation:"; grep -qE "^\*\*Attestation:\*\*.+- [^[]" $LOG && echo P
 |---|---|---|
 | CLI returns generic Rails advice | Brief was too thin | Pass file:line scope and dimension list explicitly |
 | CLI suggests service objects | Hard rule not in brief | Always include the "no service objects" line |
-| CLI prints nothing | Auth prompt or rate limit | Run the CLI interactively once to clear |
+| CLI findings read as generic Rails advice, or contradict the pack's conventions | STANDARDS block missing from the brief | Paste the Brief block from `standards.md`; drop contradicting findings in Reconcile with the standard cited |
+| CLI prints nothing, never exits, only when backgrounded | `opencode run` waits for EOF on an inherited stdin pipe | Launch with `< /dev/null`. Discriminator and details in `cli-invocations.md` |
+| CLI prints nothing and never exits; `.err` shows `error.error=` at step 1 | Provider quota or disabled model (`usage limit exceeded`, `Model access is disabled`) | Check the log before anything else; switch route for the same model or wait. Mediator decides, it is billing |
+| CLI prints nothing, and never exits | Tools denied by config, so the reviewer stalls instead of failing | See the opencode section of `cli-invocations.md`; override permissions per run. Smoke-test with a prompt that *uses a tool* |
+| Same, but a toolless prompt succeeds and the CLI worked before you added an override | `OPENCODE_CONFIG` replaces the global config; a standalone override drops `provider`/`mcp`/`plugin` | Merge the permission block into a copy of the real config (`jq '. + {permission: …}'`). Full discriminator in `cli-invocations.md` |
+| CLI prints nothing, but exits 0 after a full run | The model burned its final turn on internal reasoning and emitted no text part | Add the "WRITE THE FINDINGS AS YOUR FINAL MESSAGE" constraint above. The analysis is usually recoverable from the CLI's session store — see `cli-invocations.md` |
+| CLI prints nothing, immediately | Auth prompt, rate limit, or a CLI that needs a TTY | Smoke-test before blaming the brief. If that is silent too, hand the run to the mediator via `!` in their own terminal |
 | Findings without severity labels | Format constraint not enforced | Reject and re-run with explicit H/M/L instruction |
 | Reviewer keeps repeating | No delta-only constraint in Round 2+ | Use the ping-back template |
 | Convergence stalls | Disagreements not mediated | Force explicit decisions in synthesis |

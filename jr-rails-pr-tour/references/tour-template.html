@@ -1,0 +1,615 @@
+<title>Import runs: background CSV import with progress</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #f3f4f7;
+    --surface: #ffffff;
+    --ink: #1b1f27;
+    --muted: #5e6573;
+    --faint: #8b92a0;
+    --line: #dcdfe6;
+    --accent: #0f6e74;
+    --accent-ink: #ffffff;
+    --accent-soft: #e2f0f1;
+    --grew: #9a6512;
+    --grew-soft: #fbefd6;
+    --hot: #b0362b;
+    --hot-soft: #fbe3df;
+    --done: #3d7a3f;
+    --font-display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+    --font-body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #15181e;
+      --surface: #1d2129;
+      --ink: #e7e9ee;
+      --muted: #9aa1ae;
+      --faint: #6c7381;
+      --line: #2c313b;
+      --accent: #5cbcc2;
+      --accent-ink: #0f1518;
+      --accent-soft: #1b3336;
+      --grew: #e0a93f;
+      --grew-soft: #3a2e15;
+      --hot: #e8766a;
+      --hot-soft: #3f1f1b;
+      --done: #7fc182;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #15181e;
+    --surface: #1d2129;
+    --ink: #e7e9ee;
+    --muted: #9aa1ae;
+    --faint: #6c7381;
+    --line: #2c313b;
+    --accent: #5cbcc2;
+    --accent-ink: #0f1518;
+    --accent-soft: #1b3336;
+    --grew: #e0a93f;
+    --grew-soft: #3a2e15;
+    --hot: #e8766a;
+    --hot-soft: #3f1f1b;
+    --done: #7fc182;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  code, .mono { font-family: var(--font-mono); font-size: 0.92em; }
+  h1, h2, h3 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
+
+  .topbar {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    padding: 10px 24px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  .topbar .name { display: flex; flex-direction: column; min-width: 0; flex: 1 1 320px; }
+  .topbar h1 { font-size: 1.15rem; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+  .topbar .repo { color: var(--muted); font-size: 0.85rem; }
+  .topbar .repo b { font-weight: 500; color: var(--ink); }
+  .progress { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+  .progress .bar { width: 120px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+  .progress .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 200ms ease; }
+  .open-pr {
+    background: var(--accent); color: var(--accent-ink);
+    border: 0; border-radius: 6px; padding: 8px 14px;
+    font: 600 0.9rem var(--font-body); cursor: pointer; white-space: nowrap;
+  }
+  .open-pr:hover { text-decoration: none; filter: brightness(1.08); }
+
+  .page { display: grid; grid-template-columns: 1fr; gap: 32px; padding: 28px 24px 64px; max-width: 1180px; margin: 0 auto; }
+  @media (min-width: 900px) { .page { grid-template-columns: 280px minmax(0, 1fr); } }
+
+  .rail { align-self: start; display: flex; flex-direction: column; gap: 22px; }
+  @media (min-width: 900px) { .rail { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 72px); } }
+  .rail .eyebrow, .chapter .eyebrow { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
+  .summary { max-width: 62ch; }
+  .summary p { margin: 6px 0 0; color: var(--ink); }
+  .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; margin-top: 8px; font-variant-numeric: tabular-nums; }
+  .stats div { display: flex; flex-direction: column; }
+  .stats span { color: var(--muted); font-size: 0.78rem; }
+  .stats b { font-weight: 600; }
+  .stats .add { color: var(--done); } .stats .del { color: var(--hot); }
+  .index { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  .index li a { display: grid; grid-template-columns: 1.6em minmax(0, 1fr) auto; gap: 8px; padding: 6px 8px; border-radius: 6px; color: var(--ink); font-size: 0.9rem; align-items: baseline; }
+  .index li a:hover { background: var(--accent-soft); text-decoration: none; }
+  .index .n { color: var(--faint); font-family: var(--font-mono); font-size: 0.8rem; }
+  .index .count { color: var(--muted); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+  .index li.done a { color: var(--muted); }
+  .index li.done .n { color: var(--done); }
+  .source { font-size: 0.78rem; color: var(--faint); }
+
+  .main { display: flex; flex-direction: column; gap: 36px; min-width: 0; }
+  .chapter { scroll-margin-top: 90px; }
+  .chapter header { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .chapter h2 { font-size: 1.5rem; font-weight: 700; line-height: 1.15; display: flex; gap: 12px; align-items: baseline; }
+  .chapter h2 .n { font-family: var(--font-mono); font-size: 0.95rem; font-weight: 500; color: var(--accent); }
+  .chapter .lede { color: var(--muted); max-width: 70ch; margin: 0; }
+
+  .files { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+  .file { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 4px 12px; padding: 12px 14px; border-top: 1px solid var(--line); align-items: start; }
+  .file:first-child { border-top: 0; }
+  .file input { margin: 4px 0 0; width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+  .file .head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
+  .file .path { font-family: var(--font-mono); font-size: 0.9rem; font-weight: 500; overflow-wrap: anywhere; }
+  .file .path span { color: var(--faint); }
+  .file.deleted .path { text-decoration: line-through; color: var(--muted); }
+  .file .plain { color: var(--ink); }
+  .chip { font-size: 0.72rem; padding: 1px 7px; border-radius: 4px; border: 1px solid var(--line); color: var(--muted); letter-spacing: 0.02em; }
+  .chip.status-added { color: var(--done); border-color: color-mix(in srgb, var(--done) 40%, transparent); }
+  .chip.status-deleted { color: var(--hot); border-color: color-mix(in srgb, var(--hot) 40%, transparent); }
+  .chip.status-renamed { font-style: italic; }
+  .delta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .delta .add { color: var(--done); } .delta .del { color: var(--hot); }
+  .badge { font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 4px; letter-spacing: 0.03em; text-transform: uppercase; white-space: nowrap; }
+  .badge.l1 { background: var(--grew-soft); color: var(--grew); }
+  .badge.l2 { background: var(--hot-soft); color: var(--hot); }
+  .badge .num { font-family: var(--font-mono); font-weight: 500; text-transform: none; letter-spacing: 0; margin-left: 4px; }
+  .file .why { grid-column: 2; margin: 0; max-width: 72ch; }
+  .file .look { grid-column: 2; margin: 0; max-width: 72ch; color: var(--muted); font-size: 0.9rem; }
+  .file .look::before { content: "Look for "; font-weight: 600; color: var(--ink); }
+  .file.read .why, .file.read .look { color: var(--faint); }
+  .file.read .path { color: var(--muted); }
+
+  .qa .base-url { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; font-size: 0.85rem; color: var(--muted); }
+  .qa .base-url input { font: 500 0.9rem var(--font-mono); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; width: min(100%, 320px); }
+  .routes { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+  .routes li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 12px 14px; border-top: 1px solid var(--line); }
+  .routes li:first-child { border-top: 0; }
+  .routes .verb { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 500; color: var(--accent); min-width: 3.5em; }
+  .routes .verb.other { color: var(--muted); }
+  .routes .route { font-family: var(--font-mono); font-size: 0.9rem; font-weight: 500; overflow-wrap: anywhere; }
+  .routes .via { font-weight: 400; color: var(--muted); font-size: 0.85rem; }
+  .routes .chip { text-decoration: none; }
+  .routes .note { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 0.9rem; max-width: 72ch; }
+  .scatter .frame { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 12px 6px; }
+  .scatter svg { display: block; width: 100%; height: auto; font-family: var(--font-body); }
+  .scatter .scale { display: flex; align-items: center; gap: 4px; justify-content: flex-end; font-size: 0.78rem; color: var(--muted); padding: 0 4px 6px; }
+  .scatter .scale span { margin-right: 4px; }
+  .scatter .scale button { font: 500 0.78rem var(--font-body); color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 5px; padding: 2px 9px; cursor: pointer; }
+  .scatter .scale button.on { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+  .scatter .grid line { stroke: var(--line); stroke-width: 1; }
+  .scatter .axis text { fill: var(--muted); font-size: 11px; }
+  .scatter .axis .title { fill: var(--muted); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .scatter .land { fill: var(--faint); opacity: 0.35; }
+  .scatter .trace { stroke-width: 2; stroke-linecap: round; fill: none; }
+  .scatter .base { fill: var(--surface); stroke-width: 2; }
+  .scatter .head { stroke: var(--surface); stroke-width: 2; }
+  .scatter .l0 { stroke: var(--muted); } .scatter .l0.head { fill: var(--muted); }
+  .scatter .l1 { stroke: var(--grew); } .scatter .l1.head { fill: var(--grew); }
+  .scatter .l2 { stroke: var(--hot); } .scatter .l2.head { fill: var(--hot); }
+  .scatter .label { fill: var(--ink); font-family: var(--font-mono); font-size: 11px; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+  .scatter .hit { fill: transparent; cursor: pointer; }
+  .scatter .hit:hover + .trace, .scatter g.file:hover .trace { stroke-width: 3; }
+  .scatter .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 8px 4px 4px; font-size: 0.8rem; color: var(--muted); }
+  .scatter .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: -1px; margin-right: 6px; border: 2px solid var(--muted); box-sizing: border-box; }
+  .scatter .legend i.filled { background: var(--muted); }
+  .scatter .legend i.g { background: var(--grew); border-color: var(--grew); } .scatter .legend i.h { background: var(--hot); border-color: var(--hot); }
+  .scatter .legend i.land { background: var(--faint); border-color: var(--faint); opacity: 0.5; width: 7px; height: 7px; }
+  .tip { position: fixed; z-index: 10; pointer-events: none; background: var(--ink); color: var(--ground); font-size: 0.8rem; line-height: 1.4; padding: 6px 9px; border-radius: 6px; max-width: 320px; }
+  .tip b { font-family: var(--font-mono); font-weight: 500; overflow-wrap: anywhere; }
+  .tip[hidden] { display: none; }
+  .skipped summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; }
+  .skipped ul { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  .skipped li { display: flex; gap: 12px; flex-wrap: wrap; font-size: 0.88rem; }
+  .skipped li code { color: var(--muted); }
+  .skipped li span { color: var(--faint); }
+  .foot { color: var(--faint); font-size: 0.8rem; margin-top: 12px; }
+
+  @media (prefers-reduced-motion: reduce) { .progress .bar i { transition: none; } }
+</style>
+
+<header class="topbar">
+  <div class="name">
+    <h1 id="title"></h1>
+    <div class="repo" id="repo"></div>
+  </div>
+  <div class="progress" aria-live="polite">
+    <span id="progress-text">0 of 0 read</span>
+    <div class="bar" aria-hidden="true"><i id="progress-bar"></i></div>
+  </div>
+  <a class="open-pr" id="open-pr" target="pr" href="#">Open the diff</a>
+</header>
+
+<div class="page">
+  <aside class="rail">
+    <section class="summary">
+      <div class="eyebrow">What this PR does</div>
+      <p id="summary"></p>
+      <div class="stats" id="stats"></div>
+    </section>
+    <nav>
+      <div class="eyebrow">Chapters</div>
+      <ol class="index" id="index"></ol>
+    </nav>
+    <div class="source" id="source"></div>
+  </aside>
+
+  <main class="main" id="chapters"></main>
+</div>
+
+<script id="tour-data" type="application/json">
+{
+  "host": "github",
+  "pr": {
+    "number": 128,
+    "url": "https://github.com/example/shop/pull/128",
+    "repo": "example/shop",
+    "title": "Import runs: background CSV import with progress",
+    "base": "main",
+    "head": "feature/import-runs",
+    "additions": 812,
+    "deletions": 143,
+    "files": 14,
+    "commits": 9
+  },
+  "summary": "This PR moves the CSV import to a background job. An ImportRun record stores the status and the counters. A progress page shows them and refreshes with Turbo. The change has 14 files: 1 migration, 2 models, 1 job, 1 controller, 4 views, 4 tests, and 1 deleted concern. The 9 commits are clear, and the tour uses their order. ImportRun changed in 7 of the 9 commits. Read chapters 1 and 2 slowly.",
+  "risk_source": "attractor diff 2.7.0, attractor-ruby 0.4.0",
+  "chapters": [
+    {
+      "title": "The ImportRun record",
+      "lede": "All other files use this table and this model. Read the migration first to see the columns. Then read the model to see the status changes that the job and the controller cause.",
+      "files": [
+        {"path": "db/migrate/20260901120000_create_import_runs.rb", "layer": "migration", "status": "added", "additions": 18, "deletions": 0, "why": "Creates the import_runs table with a status column and counters. All files that follow use these columns.", "look_for": "The migration has no down method. Make sure that it is reversible.", "risk": {"level": 0}},
+        {"path": "app/models/import_run.rb", "layer": "model", "status": "added", "additions": 96, "deletions": 0, "why": "Defines ImportRun and its status changes. The job, the controller, and the progress view use it.", "look_for": "The method advance! has a flog score of 41 (line 58). It is the only method that changes the status.", "risk": {"level": 2, "label": "reworked", "complexity_head": 71.2, "commits": "7/9", "churn": 7, "churn_base": 0}, "line": {"new": 58}},
+        {"path": "app/models/product.rb", "layer": "model", "status": "modified", "additions": 22, "deletions": 4, "why": "Adds has_many :import_runs and the method upsert_from_row. The job calls upsert_from_row for each row. The old CSV code is removed from this file.", "risk": {"level": 2, "label": "hotspot", "complexity_base": 118.4, "complexity_head": 131.0, "commits": "2/9", "churn": 41, "churn_base": 39}},
+        {"path": "test/models/import_run_test.rb", "layer": "test", "status": "added", "additions": 74, "deletions": 0, "why": "Tests the status changes. Use it as the specification for advance!.", "risk": {"level": 0, "complexity_head": 22.5, "churn": 2, "churn_base": 0}}
+      ]
+    },
+    {
+      "title": "The background job",
+      "lede": "The job reads the file one row at a time and calls advance! after each row. Read this chapter to see what occurs when a row is bad or the job stops.",
+      "files": [
+        {"path": "app/jobs/import_run_job.rb", "layer": "job", "status": "added", "additions": 61, "deletions": 0, "why": "Starts the work. Calls ImportRun#advance! for each row and Product.upsert_from_row.", "look_for": "retry_on wraps a loop that is not idempotent. Check the counters after a second attempt.", "risk": {"level": 1, "label": "reworked", "complexity_head": 48.9, "commits": "3/9", "churn": 3, "churn_base": 0}},
+        {"path": "app/models/concerns/importable.rb", "layer": "model", "status": "deleted", "additions": 0, "deletions": 88, "why": "The old importer. Its code is now in ImportRunJob and Product.upsert_from_row.", "risk": {"level": 0}},
+        {"path": "test/jobs/import_run_job_test.rb", "layer": "test", "status": "added", "additions": 52, "deletions": 0, "why": "Tests the normal path and one bad row. There is no test for a retry after partial progress.", "risk": {"level": 0}}
+      ]
+    },
+    {
+      "title": "The upload form and the progress page",
+      "lede": "The web part: one route, one controller that starts the job, and one page that shows progress. Read the controller first. Then read the views in the order that a user sees them.",
+      "files": [
+        {"path": "config/routes.rb", "layer": "config", "status": "modified", "additions": 3, "deletions": 1, "why": "Adds resources :import_runs, only: %i[new create show]. Removes the old upload route.", "risk": {"level": 0}},
+        {"path": "app/controllers/import_runs_controller.rb", "layer": "controller", "status": "added", "additions": 34, "deletions": 0, "why": "The create action makes the run, attaches the file, and starts ImportRunJob. The show action renders the progress page.", "look_for": "Strong parameters permit :file only. The run is scoped to Current.account.", "risk": {"level": 0, "complexity_head": 18.7, "churn": 2, "churn_base": 0}},
+        {"path": "app/views/import_runs/new.html.erb", "layer": "view", "status": "added", "additions": 21, "deletions": 0, "why": "The upload form. It posts to the create action.", "risk": {"level": 0}},
+        {"path": "app/views/import_runs/show.html.erb", "layer": "view", "status": "added", "additions": 29, "deletions": 0, "why": "The progress page. It renders the _progress partial in a Turbo frame that refreshes.", "risk": {"level": 0}},
+        {"path": "app/views/import_runs/_progress.html.erb", "layer": "view", "status": "added", "additions": 17, "deletions": 0, "why": "Shows the counters that ImportRun#advance! updates. No other view shows them.", "risk": {"level": 0}},
+        {"path": "app/views/products/index.html.erb", "layer": "view", "status": "modified", "additions": 2, "deletions": 9, "why": "Removes the upload form. Adds a link to import_runs/new.", "risk": {"level": 0}},
+        {"path": "test/controllers/import_runs_controller_test.rb", "layer": "test", "status": "added", "additions": 40, "deletions": 0, "why": "Tests that the job is enqueued and that the redirect occurs. Read it with the controller.", "risk": {"level": 0}}
+      ]
+    }
+  ],
+  "skipped": [
+    {"path": "db/schema.rb", "reason": "generated from migrations"},
+    {"path": "Gemfile.lock", "reason": "lockfile"},
+    {"path": "test/fixtures/files/products.csv", "reason": "fixture data"}
+  ],
+  "scatter": true,
+  "landscape": [
+    {"path": "app/models/user.rb", "churn": 63, "complexity": 142.0},
+    {"path": "app/models/order.rb", "churn": 48, "complexity": 97.3},
+    {"path": "app/controllers/orders_controller.rb", "churn": 22, "complexity": 41.2},
+    {"path": "app/models/cart.rb", "churn": 17, "complexity": 38.8},
+    {"path": "app/controllers/products_controller.rb", "churn": 12, "complexity": 24.1},
+    {"path": "app/models/payment.rb", "churn": 9, "complexity": 55.6},
+    {"path": "app/jobs/order_mailer_job.rb", "churn": 4, "complexity": 9.4},
+    {"path": "app/models/address.rb", "churn": 6, "complexity": 14.0}
+  ],
+  "qa": {
+    "base_url": "http://localhost:3000",
+    "environment": "devcontainer",
+    "start": "devcontainer up --workspace-folder . && devcontainer exec --workspace-folder . bin/dev",
+    "migrations": 1,
+    "source": "bin/rails routes",
+    "routes": [
+      {"verb": "GET", "path": "/products", "action": "Products#index", "chapter": 3, "note": "The upload form is gone. A link to Import products is in its place."},
+      {"verb": "GET", "path": "/import_runs/new", "action": "ImportRuns#new", "chapter": 3, "note": "The upload form. Choose a CSV file and submit it."},
+      {"verb": "POST", "path": "/import_runs", "action": "ImportRuns#create", "chapter": 3, "via": "/import_runs/new", "note": "Submit the form. The response redirects to the progress page."},
+      {"verb": "GET", "path": "/import_runs/:id", "example": "/import_runs/1", "action": "ImportRuns#show", "chapter": 3, "note": "The counters increase while the job runs. The page refreshes without a reload."}
+    ]
+  },
+  "generated_at": "2026-09-18T15:04:00+02:00"
+}
+</script>
+
+<script>
+(function () {
+  const tour = JSON.parse(document.getElementById("tour-data").textContent);
+  const pr = tour.pr;
+  const host = tour.host;
+  const diffBase = host === "github" ? pr.url + "/files" : host === "gitlab" ? pr.url + "/diffs" : null;
+  const storeKey = "pr-tour:" + (pr.url || pr.repo + "#" + pr.number);
+
+  function load() { try { return JSON.parse(localStorage.getItem(storeKey) || "{}"); } catch (e) { return {}; } }
+  function save(state) { try { localStorage.setItem(storeKey, JSON.stringify(state)); } catch (e) {} }
+  const state = load();
+
+  document.title = pr.title;
+  document.getElementById("title").textContent = pr.title;
+  document.getElementById("repo").innerHTML =
+    "<b>" + esc(pr.repo) + (host ? " #" + pr.number : "") + "</b> · " + esc(pr.base) + " ← " + esc(pr.head);
+  document.getElementById("summary").textContent = tour.summary;
+  document.getElementById("source").textContent =
+    (tour.risk_source ? "Risk badges from " + tour.risk_source + ". " : "") +
+    "Generated " + new Date(tour.generated_at).toLocaleString() + ".";
+
+  const openPr = document.getElementById("open-pr");
+  if (diffBase) openPr.href = diffBase; else openPr.hidden = true;
+
+  const stats = document.getElementById("stats");
+  stats.innerHTML =
+    stat("files in diff", pr.files) +
+    stat("commits", pr.commits) +
+    stat("added", "<b class='add'>+" + pr.additions + "</b>") +
+    stat("removed", "<b class='del'>−" + pr.deletions + "</b>");
+  function stat(label, value) { return "<div><span>" + label + "</span>" + (String(value).startsWith("<b") ? value : "<b>" + value + "</b>") + "</div>"; }
+
+  const index = document.getElementById("index");
+  const main = document.getElementById("chapters");
+  const total = tour.chapters.reduce((n, c) => n + c.files.length, 0);
+
+  tour.chapters.forEach((chapter, ci) => {
+    const n = ci + 1;
+    const id = "chapter-" + n;
+
+    const li = document.createElement("li");
+    li.id = "index-" + n;
+    li.innerHTML = "<a href='#" + id + "'><span class='n'>" + pad(n) + "</span><span>" + esc(chapter.title) + "</span><span class='count'>" + chapter.files.length + "</span></a>";
+    index.appendChild(li);
+
+    const section = document.createElement("section");
+    section.className = "chapter";
+    section.id = id;
+    section.innerHTML =
+      "<header><div class='eyebrow'>Chapter " + n + " of " + tour.chapters.length + "</div>" +
+      "<h2><span class='n'>" + pad(n) + "</span>" + esc(chapter.title) + "</h2>" +
+      "<p class='lede'>" + esc(chapter.lede) + "</p></header><ol class='files'></ol>";
+    const list = section.querySelector(".files");
+
+    chapter.files.forEach((file) => {
+      const item = document.createElement("li");
+      item.className = "file " + file.status;
+      const key = file.path;
+      const checked = !!state[key];
+      if (checked) item.classList.add("read");
+      const slug = key.replace(/[^A-Za-z0-9]+/g, "-");
+      const cbId = "read-" + slug;
+      item.id = "file-" + slug;
+      const risk = file.risk || { level: 0 };
+      item.innerHTML =
+        "<input type='checkbox' id='" + cbId + "'" + (checked ? " checked" : "") + " aria-label='Mark " + esc(file.path) + " as read'>" +
+        "<div class='head'>" +
+          "<span class='path'>" + pathHtml(file) + "</span>" +
+          "<span class='chip'>" + esc(file.layer) + "</span>" +
+          (file.status !== "modified" ? "<span class='chip status-" + file.status + "'>" + file.status + "</span>" : "") +
+          "<span class='delta'><span class='add'>+" + file.additions + "</span> <span class='del'>−" + file.deletions + "</span></span>" +
+          badge(risk) +
+        "</div>" +
+        "<p class='why'>" + esc(file.why) + "</p>" +
+        (file.look_for ? "<p class='look'>" + esc(file.look_for) + "</p>" : "");
+      list.appendChild(item);
+
+      item.querySelector("input").addEventListener("change", (e) => {
+        state[key] = e.target.checked;
+        item.classList.toggle("read", e.target.checked);
+        save(state);
+        updateProgress();
+      });
+
+      const link = item.querySelector("a[data-path]");
+      if (link) resolveAnchor(link, file);
+    });
+
+    main.appendChild(section);
+  });
+
+(function scatter() {
+  if (!tour.scatter) return;
+  const files = tour.chapters.flatMap((c) => c.files).filter((f) => f.risk && f.risk.complexity_head != null && f.risk.churn != null);
+  if (files.length < 2) return;
+  const land = (tour.landscape || []).filter((p) => p.churn != null && p.complexity != null);
+  const pts = files.map((f) => ({
+    file: f,
+    x1: f.risk.churn_base != null ? f.risk.churn_base : f.risk.churn, y1: f.risk.complexity_base,
+    x2: f.risk.churn, y2: f.risk.complexity_head
+  }));
+  const xs = pts.flatMap((p) => [p.x1, p.x2]).concat(land.map((p) => p.churn));
+  const ys = pts.flatMap((p) => [p.y1, p.y2]).filter((v) => v != null).concat(land.map((p) => p.complexity));
+  const xMaxData = Math.max(1, ...xs), yMaxData = Math.max(1, ...ys);
+  const W = 720, H = 360, m = { t: 12, r: 16, b: 44, l: 52 };
+
+  // Heavy-tailed repos pile everything into the corner on linear axes; start in log when the spread says so.
+  const spread = (vals) => { const s = vals.filter((v) => v > 0).sort((a, b) => a - b); return s.length ? s[s.length - 1] / s[Math.floor(s.length / 2)] : 1; };
+  const scaleKey = "pr-tour:scatter-scale";
+  let mode = null;
+  try { mode = localStorage.getItem(scaleKey); } catch (e) {}
+  if (mode !== "linear" && mode !== "log") mode = (spread(xs) > 8 || spread(ys) > 8) ? "log" : "linear";
+
+  const section = document.createElement("section");
+  section.className = "chapter scatter";
+  section.id = "scatter";
+  section.innerHTML =
+    "<header><div class='eyebrow'>Before reading</div><h2>Where the touched files moved</h2>" +
+    "<p class='lede'>Each file is a trace from its position before the PR to its position after. Files that moved up added complexity. Files far to the right change often. Hover a point for the numbers; click it to go to the file.</p></header>" +
+    "<div class='frame'><div class='scale' role='group' aria-label='Axis scale'><span>Scale</span><button type='button' data-mode='linear'>Linear</button><button type='button' data-mode='log'>Log</button></div><div class='plot'></div>" +
+    "<div class='legend'><span><i></i>before the PR</span><span><i class='filled'></i>after the PR</span><span><i class='g'></i>grew or reworked</span><span><i class='h'></i>hotspot</span>" +
+    (land.length ? "<span><i class='land'></i>files not in the PR</span>" : "") +
+    "<span>New files have no before point. Files without a complexity score are not shown; the numbers are in the file rows.</span></div></div>";
+  const tip = document.createElement("div");
+  tip.className = "tip";
+  tip.hidden = true;
+  section.appendChild(tip);
+  const plot = section.querySelector(".plot");
+  section.querySelectorAll(".scale button").forEach((b) => b.addEventListener("click", () => {
+    mode = b.dataset.mode;
+    try { localStorage.setItem(scaleKey, mode); } catch (e) {}
+    draw();
+  }));
+  main.prepend(section);
+  draw();
+
+  function draw() {
+    section.querySelectorAll(".scale button").forEach((b) => b.classList.toggle("on", b.dataset.mode === mode));
+    const log = mode === "log";
+    // log axes use log10(v + 1) so zero (new files, no base churn) still has a place
+    const xStep = nice(xMaxData / 5), yStep = nice(yMaxData / 5);
+    const xMax = log ? xMaxData * 1.15 : Math.ceil(xMaxData * 1.04 / xStep) * xStep;
+    const yMax = log ? yMaxData * 1.15 : Math.ceil(yMaxData * 1.04 / yStep) * yStep;
+    const fx = log ? (v) => Math.log10(v + 1) / Math.log10(xMax + 1) : (v) => v / xMax;
+    const fy = log ? (v) => Math.log10(v + 1) / Math.log10(yMax + 1) : (v) => v / yMax;
+    const sx = (v) => m.l + fx(v) * (W - m.l - m.r);
+    const sy = (v) => H - m.b - fy(v) * (H - m.t - m.b);
+    const xt = log ? logTicks(xMax) : ticks(xMax, xStep), yt = log ? logTicks(yMax) : ticks(yMax, yStep);
+
+    let svg = "<svg viewBox='0 0 " + W + " " + H + "' role='img' aria-label='Churn against complexity for the files in this PR, base to head, " + mode + " scale'>";
+    svg += "<g class='grid'>" + yt.map((v) => "<line x1='" + m.l + "' x2='" + (W - m.r) + "' y1='" + sy(v) + "' y2='" + sy(v) + "'/>").join("") + "</g>";
+    svg += "<g class='axis'>" +
+      xt.map((v) => "<text x='" + sx(v) + "' y='" + (H - m.b + 16) + "' text-anchor='middle'>" + v + "</text>").join("") +
+      yt.map((v) => "<text x='" + (m.l - 8) + "' y='" + (sy(v) + 4) + "' text-anchor='end'>" + v + "</text>").join("") +
+      "<text class='title' x='" + (m.l + (W - m.l - m.r) / 2) + "' y='" + (H - 6) + "' text-anchor='middle'>Churn · commits touching the file" + (log ? " · log" : "") + "</text>" +
+      "<text class='title' transform='translate(12 " + (m.t + (H - m.t - m.b) / 2) + ") rotate(-90)' text-anchor='middle'>Complexity · flog" + (log ? " · log" : "") + "</text></g>";
+    svg += "<g>" + land.map((p) => "<circle class='land' r='3' cx='" + sx(p.churn) + "' cy='" + sy(p.complexity) + "'/>").join("") + "</g>";
+    svg += pts.map((p, i) => {
+      const lvl = "l" + (p.file.risk.level || 0);
+      const hasBase = p.y1 != null;
+      let g = "<g class='file' data-i='" + i + "'>";
+      if (hasBase && (p.x1 !== p.x2 || p.y1 !== p.y2)) g += "<line class='trace " + lvl + "' x1='" + sx(p.x1) + "' y1='" + sy(p.y1) + "' x2='" + sx(p.x2) + "' y2='" + sy(p.y2) + "'/>";
+      if (hasBase) g += "<circle class='base " + lvl + "' r='5' cx='" + sx(p.x1) + "' cy='" + sy(p.y1) + "'/>";
+      g += "<circle class='head " + lvl + "' r='6' cx='" + sx(p.x2) + "' cy='" + sy(p.y2) + "'/>";
+      if ((p.file.risk.level || 0) === 2) g += "<text class='label' x='" + (sx(p.x2) + 9) + "' y='" + (sy(p.y2) + 4) + "'>" + esc(p.file.path.split("/").pop()) + "</text>";
+      g += "<circle class='hit' r='14' cx='" + sx(p.x2) + "' cy='" + sy(p.y2) + "'/></g>";
+      return g;
+    }).join("");
+    svg += "</svg>";
+    plot.innerHTML = svg;
+
+    plot.querySelectorAll("g.file").forEach((g) => {
+      const p = pts[+g.dataset.i];
+      g.addEventListener("mousemove", (e) => {
+        tip.innerHTML = "<b>" + esc(p.file.path) + "</b><br>churn " + (p.y1 != null && p.x1 !== p.x2 ? p.x1 + " → " : "") + p.x2 +
+          " · complexity " + (p.y1 != null ? Math.round(p.y1) + " → " : "new, ") + Math.round(p.y2);
+        tip.hidden = false;
+        tip.style.left = (e.clientX + 14) + "px";
+        tip.style.top = (e.clientY + 14) + "px";
+      });
+      g.addEventListener("mouseleave", () => { tip.hidden = true; });
+      g.addEventListener("click", () => {
+        const row = document.getElementById("file-" + p.file.path.replace(/[^A-Za-z0-9]+/g, "-"));
+        if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    });
+  }
+
+  function nice(v) { const p = Math.pow(10, Math.floor(Math.log10(v))); const n = v / p; const s = n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10; return s * p; }
+  function ticks(max, step) { const out = []; for (let v = 0; v <= max + 1e-9; v += step) out.push(+v.toPrecision(3)); return out; }
+  function logTicks(max) { const out = [0]; for (let p = 1; p <= max; p *= 10) [1, 2, 5].forEach((k) => { if (k * p <= max) out.push(k * p); }); return out; }
+})();
+
+  if (tour.qa && tour.qa.routes && tour.qa.routes.length) {
+    const qa = tour.qa;
+    const urlKey = "pr-tour:base-url";
+    let baseUrl = qa.base_url || "http://localhost:3000";
+    try { baseUrl = localStorage.getItem(urlKey) || baseUrl; } catch (e) {}
+
+    const section = document.createElement("section");
+    section.className = "chapter qa";
+    section.id = "qa";
+    section.innerHTML =
+      "<header><div class='eyebrow'>After reading</div>" +
+      "<h2>Try it on the dev server</h2>" +
+      "<p class='lede'>" +
+      (qa.environment === "devcontainer" ? "The server runs in the project's devcontainer. " : "") +
+      (qa.migrations ? "The PR has " + qa.migrations + " migration" + (qa.migrations === 1 ? "" : "s") + (qa.environment === "host" ? "; the server runs them on your development database. " : ". ") : "") +
+      (qa.start ? "Start it with <code>" + esc(qa.start) + "</code> on the PR branch. " : "") +
+      "Links open in a third tab that is reused." + (qa.source ? " Paths from " + esc(qa.source) + "." : "") + "</p></header>" +
+      "<label class='base-url'><span>Base URL</span><input id='base-url' type='url' value='" + esc(baseUrl) + "' spellcheck='false'></label>" +
+      "<ol class='routes'></ol>";
+    const list = section.querySelector(".routes");
+
+    qa.routes.forEach((r) => {
+      const item = document.createElement("li");
+      const target = r.example || r.path;
+      const isGet = (r.verb || "GET").toUpperCase() === "GET";
+      item.innerHTML =
+        "<span class='verb" + (isGet ? "" : " other") + "'>" + esc(r.verb || "GET") + "</span>" +
+        "<span class='route'>" +
+          (isGet
+            ? "<a target='app' data-route='" + esc(target) + "' href='" + esc(baseUrl + target) + "'>" + esc(r.path) + "</a>"
+            : "<span class='mono'>" + esc(r.path) + "</span>" + (r.via ? " <span class='via'>via <a target='app' data-route='" + esc(r.via) + "' href='" + esc(baseUrl + r.via) + "'>" + esc(r.via) + "</a></span>" : "")) +
+          (r.example && r.example !== r.path ? " <span class='via'>e.g. " + esc(r.example) + "</span>" : "") +
+        "</span>" +
+        (r.action ? "<span class='chip'>" + esc(r.action) + "</span>" : "") +
+        (r.chapter ? "<a class='chip' href='#chapter-" + r.chapter + "'>ch. " + pad(r.chapter) + "</a>" : "") +
+        (r.note ? "<p class='note'>" + esc(r.note) + "</p>" : "");
+      list.appendChild(item);
+    });
+
+    section.querySelector("#base-url").addEventListener("change", (e) => {
+      baseUrl = e.target.value.replace(/\/+$/, "");
+      try { localStorage.setItem(urlKey, baseUrl); } catch (e2) {}
+      section.querySelectorAll("a[data-route]").forEach((a) => { a.href = baseUrl + a.dataset.route; });
+    });
+
+    main.appendChild(section);
+  }
+
+  const skipped = document.createElement("details");
+  skipped.className = "skipped";
+  skipped.innerHTML =
+    "<summary>" + tour.skipped.length + " file" + (tour.skipped.length === 1 ? "" : "s") + " left out of the tour</summary><ul>" +
+    tour.skipped.map((s) => "<li><code>" + esc(s.path) + "</code><span>" + esc(s.reason) + "</span></li>").join("") +
+    "</ul><p class='foot'>Every file in the diff is either above or here.</p>";
+  main.appendChild(skipped);
+
+  function pathHtml(file) {
+    const parts = file.path.split("/");
+    const base = parts.pop();
+    const dir = parts.length ? "<span>" + esc(parts.join("/") + "/") + "</span>" : "";
+    if (!diffBase || file.status === "deleted" && host === "gitlab") return "<span class='plain'>" + dir + esc(base) + "</span>";
+    return "<a data-path='" + esc(file.path) + "' target='pr' href='" + diffBase + "'>" + dir + esc(base) + "</a>";
+  }
+
+  function badge(risk) {
+    if (!risk || !risk.level) return "";
+    const label = risk.label || (risk.level === 2 ? "hotspot" : "grew");
+    const parts = [];
+    if (risk.complexity_head != null) parts.push((risk.complexity_base != null ? Math.round(risk.complexity_base) + "→" : "") + Math.round(risk.complexity_head));
+    if (risk.commits) parts.push(esc(risk.commits) + " commits");
+    const num = parts.length ? "<span class='num'>" + parts.join(" · ") + "</span>" : "";
+    return "<span class='badge l" + risk.level + "' title='complexity added by the PR · commits in the PR touching this file'>" + esc(label) + num + "</span>";
+  }
+
+  async function resolveAnchor(link, file) {
+    if (!window.crypto || !crypto.subtle) return;
+    const bytes = new TextEncoder().encode(file.path);
+    let hash;
+    try {
+      const algo = host === "github" ? "SHA-256" : "SHA-1";
+      const buf = await crypto.subtle.digest(algo, bytes);
+      hash = Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+    } catch (e) { return; }
+    let anchor;
+    if (host === "github") {
+      anchor = "#diff-" + hash;
+      if (file.line && file.line.new) anchor += "R" + file.line.new;
+      else if (file.line && file.line.old) anchor += "L" + file.line.old;
+    } else {
+      anchor = "#" + hash;
+      if (file.line && file.line.old != null && file.line.new != null) anchor += "_" + file.line.old + "_" + file.line.new;
+    }
+    link.href = diffBase + anchor;
+  }
+
+  function updateProgress() {
+    let read = 0;
+    tour.chapters.forEach((chapter, ci) => {
+      const done = chapter.files.filter((f) => state[f.path]).length;
+      read += done;
+      document.getElementById("index-" + (ci + 1)).classList.toggle("done", done === chapter.files.length);
+    });
+    document.getElementById("progress-text").textContent = read + " of " + total + " read";
+    document.getElementById("progress-bar").style.width = (total ? (read / total) * 100 : 0) + "%";
+  }
+  updateProgress();
+
+  function pad(n) { return String(n).padStart(2, "0"); }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+})();
+</script>
