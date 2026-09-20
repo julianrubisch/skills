@@ -24,6 +24,8 @@ Or via the plugin marketplace:
 | `jr-rails-new` | Scaffold a new Rails app with preferred stack — interactive interview, then `rails new` + full post-scaffold configuration |
 | `jr-rails-phlex` | Write Phlex views and components for Rails — class hierarchy, slots, helpers, custom elements, scaffold generator |
 | `jr-rails-second-opinion` | Get a Rails-flavored second opinion on a branch, PR, or working tree by delegating to a locally-installed agentic CLI (codex, opencode, gemini, aider, mods, …). Self-contained: no MCP server required |
+| `jr-rails-pr-tour` | Turn a large PR or MR into a guided reading order: chapters of related files ordered by Rails layer and dependency, a one-line "why here" per file, churn × complexity risk badges, and the routes to open on a dev server. Published as a page that drives the diff in a second tab. GitHub and GitLab |
+| `jr-rails-bootstrap` | One-time Mac bootstrap from a blank dev environment to a Rails app running in the browser: Xcode CLT, Homebrew, mise, Ruby, Node, gh/glab, this skills pack, then `jr-rails-new`. Written for non-technical users |
 
 ## jr-rails-classic
 
@@ -123,6 +125,88 @@ plus the hard rule against service-object suggestions. Output is a working
 log (`second-opinion.md`) with rounds, reconciliation tables, gate status,
 mediator approval, and final attestation. Deleted after attestation; the
 improved artifact is the deliverable, not the log.
+
+Findings are judged against the pack's own standards, not the CLI's taste:
+`references/standards.md` lists them per dimension with links into the
+shared references, its brief block goes into every CLI brief, and Reconcile
+drops CLI findings that contradict a standard (service objects, factories,
+mail in a callback) with the standard cited.
+
+## jr-rails-pr-tour
+
+Turns a large PR or MR into a reading order. Code review tools list files
+alphabetically; reviewers report more context switching and missed bugs
+that way, and ask for dependency order and grouping by purpose instead.
+Rails makes both cheap: the layer is in the path, the dependencies are in
+the constants.
+
+**Invoke:**
+
+- `/jr-rails-pr-tour <PR or MR URL>`
+- `/jr-rails-pr-tour <number>` (host inferred from `git remote`)
+- `/jr-rails-pr-tour` (current branch vs `main`, no host links)
+- `--comment` also posts the tour as a PR/MR comment for co-reviewers
+
+**What it produces:** a page with chapters of related files in the order to
+read them. Per file: a one-line "why here", a "look for" line where
+something deserves attention, and a risk badge that measures the change
+(complexity the PR added, from `attractor diff`; how many of the PR's
+commits touched the file), not the code's history. Every link opens the
+diff at that file in a second, reused browser tab, via GitHub (sha256) and
+GitLab (sha1) file anchors computed in the page. Checkboxes remember what
+you have read. Optional: a churn × complexity scatter of the touched files
+with base → head traces (linear/log), and the routes to open on a running
+dev server, per chapter, with the project's devcontainer started for you
+when it has one.
+
+**How the order is derived:** noise filter (lockfiles, schema dump,
+fixtures, build output; rendered as a skip list so nothing disappears),
+Rails layer per file, symbol references between changed files plus Rails
+conventions (associations, controller → views, routes → controllers,
+migration → model, test → subject), union-find clustering, topological
+order inside a chapter, then a judgement pass that names the chapters and
+reshapes what the mechanics got wrong. Prose follows Simplified Technical
+English. It is a map, not a review; it does not produce findings.
+
+**Requires:** `gh` or `glab` authenticated for host links and `--comment`.
+`attractor` with `attractor-ruby` (and `attractor-javascript`) for
+complexity badges and the scatter; the skill finds it under any installed
+Ruby, installs it when none has it, and falls back to `flog`, then to diff
+size. GitHub, GitHub Enterprise, gitlab.com and self-hosted GitLab.
+
+## jr-rails-bootstrap
+
+One-time setup of a Mac from a near-blank dev environment to a Rails app
+running in the browser. Written for non-technical users: a conversational
+interview, automated execution, one short "why this matters" line before
+each install step, plain-language errors, and a visible
+`Step 6 of 20: installing mise...` progress line throughout.
+
+**Invoke:**
+
+- `/jr-rails-bootstrap`
+
+**Phases:**
+
+| Phase | What |
+|-------|------|
+| A | Sanity check (macOS version, subscription); fresh app or existing app? |
+| B | Prerequisites: Xcode CLT, Homebrew, mise, Ruby 4.0, Node 22 |
+| C | Git hosting CLI(s): `gh` and/or `glab`; auth happens in a separate Terminal window |
+| D | This skills pack via `npx skills add julianrubisch/skills -g -y` |
+| E | The app: `jr-rails-new` (fresh) or a smoke check (existing) |
+| F | Git remote: create new or attach existing; first push |
+| G | Run the app (`bin/dev` or the project's `CLAUDE.md` instructions) and open the browser |
+
+Every step is idempotent ("✓ already installed (version X)"), so re-running
+on a configured Mac completes without side effects. Interactive auth never
+runs inside the Claude Code session; the skill hands you the command for a
+fresh Terminal window and waits. An existing app's files are never
+overwritten. The audit trail is `SETUP_SUMMARY.md` in the project, which a
+later run reads instead of re-detecting.
+
+**Assumes:** macOS 14+, Claude Code installed and authenticated, a Claude
+Pro or Max subscription. Deployment and SSH keys are out of scope.
 
 ## Reference Library
 
