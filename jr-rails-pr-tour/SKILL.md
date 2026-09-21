@@ -43,6 +43,8 @@ not rewrite the page.
 - `/jr-rails-pr-tour <number>` (host inferred from `git remote`)
 - `/jr-rails-pr-tour` (current branch vs `main`, no host links)
 - `--comment` also posts the tour as a PR/MR comment for co-reviewers
+- `--triage` splits off a "Safe to skim" chapter for mechanical changes
+  (asked automatically above 30 files)
 
 ## Operator
 
@@ -58,7 +60,7 @@ links are the substitute.
 | Phase | What | Output |
 |-------|------|--------|
 | 0 | Resolve host, PR, base and head; fetch the diff | `HOST`, `PR`, file list with stats |
-| 1 | Noise filter: lockfiles, schema dump, fixtures, generated assets | skip list |
+| 1 | Noise filter: lockfiles, schema dump, fixtures, generated assets; above 30 files, **ask** whether to triage mechanical changes into a "Safe to skim" chapter | skip list, optional skim set |
 | 2 | Signals: Rails layer per file, symbol references between changed files, commit structure | edge list, layer map |
 | 3 | Risk: complexity the PR added (`attractor diff`, else `flog`, else diff size) and how many of the PR's commits touched each file; **ask** whether to add the churn × complexity scatter | badge per file, optional chart data |
 | 4 | Chapters: cluster by coupling, order chapters by layer, order files by dependency; **name and reshape chapters by judgement**; list the routes to open on a dev server per chapter | tour JSON |

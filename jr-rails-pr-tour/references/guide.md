@@ -42,6 +42,41 @@ Do not skip `db/migrate/**`, `config/routes.rb`, `config/initializers/**` or
 last. The skip list is still rendered at the bottom of the tour so nothing
 disappears.
 
+### Phase 1b: Triage (ask for large PRs)
+
+A 60-file PR is not 60 files of the same weight. When more than 30 files
+survive the noise filter, or `--triage` was passed, ask once with
+`AskUserQuestion`:
+
+- **Triage** (recommended above 30 files): split the tour into chapters
+  that need eyes and one "Safe to skim" chapter at the end for mechanical
+  changes. Every file stays in the tour, keeps its link and its checkbox,
+  and the skim chapter has a "mark all as read" button.
+- **Full tour**: every file gets a chapter and a "why".
+
+What qualifies as safe to skim, each with its test:
+
+| Kind | Test |
+|---|---|
+| Rename without content change | `git diff -M90% --name-status` shows `R100`, or `R9x` with only the path in the diff |
+| Formatting only | `git diff -w --ignore-blank-lines $BASE $HEAD -- path` is empty, or the change is a formatter run (`.rubocop.yml` touched in the same commit, every hunk is whitespace or quotes) |
+| Mechanical mass edit | the same one-line change in 5 or more files (a constant or method rename, a namespace move); keep **one** representative in the real chapters with `why` naming the others, put the rest in skim |
+| Generated or vendored code that passed the noise filter | `bin/rails g` output, `schema.rb` variants, minified assets |
+| Additions of translation keys, fixtures, seeds | no logic; the file is pure data |
+| Deleted dead code | a deleted file with no remaining references at `$HEAD` (`git grep -l <constant>` empty) |
+
+Never skim: anything with `risk.level` 2, any migration, any file in
+`config/`, any deleted file that still has references, and any test whose
+subject is in a real chapter. When in doubt, it is not safe to skim.
+
+The skim chapter: `title` "Safe to skim", `skim: true`, `lede` says what
+kinds are in it and how many of each, and every file's `why` is its
+reason in three to six words ("rename only", "formatter run", "same
+rename as user.rb"). Order inside by kind, then path.
+
+Say in the summary how the split came out ("41 files: 17 to read, 24
+safe to skim").
+
 ## Phase 2: Signals
 
 ### 2a. Rails layer
@@ -546,6 +581,8 @@ computation beyond anchors and progress.
 }
 ```
 
+A chapter with `"skim": true` renders collapsed at the end with a "mark
+all as read" button (Phase 1b); it is always the last chapter.
 `risk.churn` and `risk.churn_base` are numbers (see Phase 3); with
 `complexity_*` they feed the scatter, which the page draws only when
 `scatter` is `true` (the user's answer). `landscape` is optional:
@@ -571,8 +608,15 @@ verbatim. `line` is optional; GitLab needs both
    tag must be replaced with the PR title too (first 8KB is what the
    gallery reads).
 2. Publish with the Artifact tool: favicon `🗺️`, description
-   "Reading order for <repo>#<number>". Do not load `artifact-design` for
-   this; the page is already designed and the data block is the only
+   "Reading order for <repo>#<number>", and
+   `capabilities: {db: {}, user: {}}` so each reviewer's ticks sync to
+   their own private subtree of the artifact's database and follow them
+   across devices (the page keeps `localStorage` as the instant copy and
+   works without the grant). A `db` artifact is organization-internal:
+   it cannot be shared by public link. When the tour must go to someone
+   outside the organization, publish with `capabilities: {}` instead and
+   say that ticks then stay in the browser. Do not load `artifact-design`
+   for this; the page is already designed and the data block is the only
    variable part.
 3. Report the link and one sentence on what the reviewer will find. Remind
    them once that links open the PR in a second tab that is reused.

@@ -6,6 +6,24 @@ release notes on julianrubisch/skills.
 
 ## Unreleased
 
+## v1.4.0
+
+- **jr-rails-pr-tour**: the progress indicator toggles, on click, between
+  files left and the share of changed lines read; the choice is
+  remembered.
+- **jr-rails-pr-tour**: ticked files sync to the reviewer's own private
+  subtree of the artifact database (`capabilities: {db, user}`), so
+  progress follows them across devices; `localStorage` stays as the
+  instant copy and the page works without the grant. Publish with
+  `capabilities: {}` when the tour must be shared outside the
+  organization.
+- **jr-rails-pr-tour**: triage for large PRs. Above 30 files (or with
+  `--triage`) the skill asks whether to split mechanical changes
+  (renames, formatter runs, mass one-line edits, data-only additions,
+  dead-code deletions) into a collapsed "Safe to skim" chapter with a
+  "mark all as read" button. Every file stays in the tour; migrations,
+  config, hotspots and referenced deletions are never skimmed.
+
 ## v1.3.0
 
 - Add **jr-rails-pr-tour** skill: turn a large Rails PR or MR into a guided

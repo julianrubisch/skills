@@ -84,8 +84,9 @@
   .topbar h1 { font-size: 1.15rem; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
   .topbar .repo { color: var(--muted); font-size: 0.85rem; }
   .topbar .repo b { font-weight: 500; color: var(--ink); }
-  .progress { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
-  .progress .bar { width: 120px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+  .progress { display: flex; align-items: center; gap: 10px; color: var(--muted); font: inherit; font-size: 0.85rem; font-variant-numeric: tabular-nums; background: transparent; border: 0; padding: 4px 6px; border-radius: 6px; cursor: pointer; }
+  .progress:hover { background: var(--accent-soft); }
+  .progress .bar { display: block; width: 120px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
   .progress .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 200ms ease; }
   .open-pr {
     background: var(--accent); color: var(--accent-ink);
@@ -186,6 +187,10 @@
   .tip { position: fixed; z-index: 10; pointer-events: none; background: var(--ink); color: var(--ground); font-size: 0.8rem; line-height: 1.4; padding: 6px 9px; border-radius: 6px; max-width: 320px; }
   .tip b { font-family: var(--font-mono); font-weight: 500; overflow-wrap: anywhere; }
   .tip[hidden] { display: none; }
+  .skim-actions { margin-top: 4px; }
+  .mark-all { font: 500 0.82rem var(--font-body); color: var(--accent); background: var(--accent-soft); border: 0; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+  .mark-all:hover { filter: brightness(0.96); }
+  details.skim > summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; margin-bottom: 8px; }
   .skipped summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; }
   .skipped ul { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
   .skipped li { display: flex; gap: 12px; flex-wrap: wrap; font-size: 0.88rem; }
@@ -201,10 +206,10 @@
     <h1 id="title"></h1>
     <div class="repo" id="repo"></div>
   </div>
-  <div class="progress" aria-live="polite">
+  <button class="progress" id="progress" type="button" title="Switch between files left and lines read" aria-live="polite">
     <span id="progress-text">0 of 0 read</span>
-    <div class="bar" aria-hidden="true"><i id="progress-bar"></i></div>
-  </div>
+    <span class="bar" aria-hidden="true"><i id="progress-bar"></i></span>
+  </button>
   <a class="open-pr" id="open-pr" target="pr" href="#">Open the diff</a>
 </header>
 
@@ -318,7 +323,7 @@
   const storeKey = "pr-tour:" + (pr.url || pr.repo + "#" + pr.number);
 
   function load() { try { return JSON.parse(localStorage.getItem(storeKey) || "{}"); } catch (e) { return {}; } }
-  function save(state) { try { localStorage.setItem(storeKey, JSON.stringify(state)); } catch (e) {} }
+  let save = (state) => { try { localStorage.setItem(storeKey, JSON.stringify(state)); } catch (e) {} };
   const state = load();
 
   document.title = pr.title;
@@ -358,10 +363,19 @@
     section.className = "chapter";
     section.id = id;
     section.innerHTML =
-      "<header><div class='eyebrow'>Chapter " + n + " of " + tour.chapters.length + "</div>" +
+      "<header><div class='eyebrow'>" + (chapter.skim ? "Safe to skim" : "Chapter " + n + " of " + tour.chapters.length) + "</div>" +
       "<h2><span class='n'>" + pad(n) + "</span>" + esc(chapter.title) + "</h2>" +
-      "<p class='lede'>" + esc(chapter.lede) + "</p></header><ol class='files'></ol>";
+      "<p class='lede'>" + esc(chapter.lede) + "</p>" +
+      (chapter.skim ? "<div class='skim-actions'><button type='button' class='mark-all'>Mark all " + chapter.files.length + " as read</button></div>" : "") +
+      "</header>" +
+      (chapter.skim ? "<details class='skim'><summary>Show the " + chapter.files.length + " files</summary><ol class='files'></ol></details>" : "<ol class='files'></ol>");
     const list = section.querySelector(".files");
+    if (chapter.skim) section.querySelector(".mark-all").addEventListener("click", () => {
+      chapter.files.forEach((f) => { state[f.path] = true; });
+      list.querySelectorAll("input[type=checkbox]").forEach((cb) => { cb.checked = true; cb.closest(".file").classList.add("read"); });
+      save(state);
+      updateProgress();
+    });
 
     chapter.files.forEach((file) => {
       const item = document.createElement("li");
@@ -372,6 +386,7 @@
       const slug = key.replace(/[^A-Za-z0-9]+/g, "-");
       const cbId = "read-" + slug;
       item.id = "file-" + slug;
+      item.dataset.path = key;
       const risk = file.risk || { level: 0 };
       item.innerHTML =
         "<input type='checkbox' id='" + cbId + "'" + (checked ? " checked" : "") + " aria-label='Mark " + esc(file.path) + " as read'>" +
@@ -597,17 +612,87 @@
     link.href = diffBase + anchor;
   }
 
+  // Two ways to count progress: files left, or share of changed lines read. Big files skew the second toward the truth.
+  const progressKey = "pr-tour:progress-mode";
+  let progressMode = "files";
+  try { progressMode = localStorage.getItem(progressKey) || "files"; } catch (e) {}
+  const lines = (f) => (f.additions || 0) + (f.deletions || 0);
+  const totalLines = tour.chapters.reduce((n, c) => n + c.files.reduce((m, f) => m + lines(f), 0), 0);
+  document.getElementById("progress").addEventListener("click", () => {
+    progressMode = progressMode === "files" ? "lines" : "files";
+    try { localStorage.setItem(progressKey, progressMode); } catch (e) {}
+    updateProgress();
+  });
+
   function updateProgress() {
-    let read = 0;
+    let read = 0, readLines = 0;
     tour.chapters.forEach((chapter, ci) => {
-      const done = chapter.files.filter((f) => state[f.path]).length;
-      read += done;
-      document.getElementById("index-" + (ci + 1)).classList.toggle("done", done === chapter.files.length);
+      const done = chapter.files.filter((f) => state[f.path]);
+      read += done.length;
+      readLines += done.reduce((m, f) => m + lines(f), 0);
+      document.getElementById("index-" + (ci + 1)).classList.toggle("done", done.length === chapter.files.length);
     });
-    document.getElementById("progress-text").textContent = read + " of " + total + " read";
-    document.getElementById("progress-bar").style.width = (total ? (read / total) * 100 : 0) + "%";
+    const text = document.getElementById("progress-text");
+    let ratio;
+    if (progressMode === "lines") {
+      ratio = totalLines ? readLines / totalLines : 0;
+      text.textContent = Math.round(ratio * 100) + "% of lines read";
+    } else {
+      ratio = total ? read / total : 0;
+      const left = total - read;
+      text.textContent = left === 0 ? "all " + total + " files read" : left + " of " + total + " file" + (total === 1 ? "" : "s") + " left";
+    }
+    document.getElementById("progress-bar").style.width = (ratio * 100) + "%";
   }
   updateProgress();
+
+  // Ticks live in localStorage for instant, account-free use; when the page runs inside claude.ai with
+  // db + user granted, they also sync to the viewer's private subtree so they follow them across devices.
+  (async function syncTicks() {
+    if (!window.claude || typeof claude.use !== "function") return;
+    const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
+    if (!db || !user) return;
+    const uid = await user.id();
+    if (!uid) return;
+    const docId = storeKey.replace(/[^A-Za-z0-9_.~:@+-]+/g, "-").slice(0, 200);
+    let ref;
+    try { ref = db.doc("data/users/" + uid + "/pr-tour").collection("tours").doc(docId); } catch (e) { return; }
+
+    let writing = Promise.resolve();
+    let timer = null;
+    const persistRemote = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        writing = writing.then(() => ref.set({ ticks: state, updated_at: new Date().toISOString() })).catch(() => {});
+      }, 400);
+    };
+    const origSave = save;
+    save = (s) => { origSave(s); persistRemote(); };
+
+    let seeded = false;
+    ref.onSnapshot((snap) => {
+      if (!snap.exists) {
+        if (!seeded && Object.keys(state).some((k) => state[k])) persistRemote();
+        seeded = true;
+        return;
+      }
+      seeded = true;
+      const remote = (snap.data() || {}).ticks || {};
+      let changed = false;
+      Object.keys(remote).forEach((k) => { if (!!state[k] !== !!remote[k]) { state[k] = !!remote[k]; changed = true; } });
+      if (!changed) return;
+      origSave(state);
+      document.querySelectorAll(".file input[type=checkbox]").forEach((cb) => {
+        const li = cb.closest(".file");
+        const key = li && li.dataset.path;
+        if (!key) return;
+        cb.checked = !!state[key];
+        li.classList.toggle("read", !!state[key]);
+      });
+      updateProgress();
+    }, () => {});
+    document.getElementById("progress").title += " · ticks sync to your account";
+  })();
 
   function pad(n) { return String(n).padStart(2, "0"); }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
