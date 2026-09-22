@@ -473,9 +473,16 @@ running dev server to see the change. Order them like the chapters.
 - Only `GET` paths are links. For `POST/PATCH/DELETE`, list the `GET`
   page that holds the form ("Submit the form on /import_runs/new") and the
   action it hits.
-- Paths with parameters keep the placeholder: `/import_runs/:id`. If a
-  fixture or seed makes an obvious value, add it as `example`
-  (`/import_runs/1`). Do not invent IDs.
+- Paths with parameters should open. A placeholder (`/import_runs/:id`)
+  is a dead link; find a real value and put the concrete path in
+  `example` (the page links the example and shows the pattern beside it).
+  In order: a fixture or seed that names one (`test/fixtures/*.yml`,
+  `db/seeds.rb`); a read-only query against the development database
+  when the app boots, `bin/rails runner 'puts ImportRun.order(:id).last&.id'`
+  (inside the devcontainer when there is one; on the host this reads the
+  reviewer's own database, which is fine, it writes nothing); else keep
+  the placeholder and say in `note` what to substitute. Never invent an
+  ID; a wrong one gives a 404 that looks like a bug in the PR.
 - Jobs, models, and concerns have no path. Put the trigger in `note`
   instead: "Runs after a POST to /import_runs; watch the log or
   /jobs (Mission Control) if mounted."

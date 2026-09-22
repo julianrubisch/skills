@@ -555,9 +555,9 @@
         "<span class='verb" + (isGet ? "" : " other") + "'>" + esc(r.verb || "GET") + "</span>" +
         "<span class='route'>" +
           (isGet
-            ? "<a target='app' data-route='" + esc(target) + "' href='" + esc(baseUrl + target) + "'>" + esc(r.path) + "</a>"
-            : "<span class='mono'>" + esc(r.path) + "</span>" + (r.via ? " <span class='via'>via <a target='app' data-route='" + esc(r.via) + "' href='" + esc(baseUrl + r.via) + "'>" + esc(r.via) + "</a></span>" : "")) +
-          (r.example && r.example !== r.path ? " <span class='via'>e.g. " + esc(r.example) + "</span>" : "") +
+            ? "<a target='app' data-route='" + esc(target) + "' href='" + esc(baseUrl + target) + "'>" + esc(target) + "</a>"
+            : "<span class='mono'>" + esc(target) + "</span>" + (r.via ? " <span class='via'>via <a target='app' data-route='" + esc(r.via) + "' href='" + esc(baseUrl + r.via) + "'>" + esc(r.via) + "</a></span>" : "")) +
+          (r.example && r.example !== r.path ? " <span class='via'>" + esc(r.path) + "</span>" : "") +
         "</span>" +
         (r.action ? "<span class='chip'>" + esc(r.action) + "</span>" : "") +
         (r.chapter ? "<a class='chip' href='#chapter-" + r.chapter + "'>ch. " + pad(r.chapter) + "</a>" : "") +

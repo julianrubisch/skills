@@ -6,6 +6,13 @@ release notes on julianrubisch/skills.
 
 ## Unreleased
 
+## v1.5.1
+
+- **jr-rails-pr-tour**: dev-server routes link the concrete path
+  (`/clients/11945/contacts`) and show the pattern beside it, instead of
+  the reverse; the guide says where to get real ids (fixtures, seeds, a
+  read-only `bin/rails runner` query) and never to invent one.
+
 ## v1.5.0
 
 - **jr-rails-pr-tour**: non-Rails and mixed repositories: the symbol grep
