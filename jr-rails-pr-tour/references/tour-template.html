@@ -154,6 +154,10 @@
   .routes { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
   .routes li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 12px 14px; border-top: 1px solid var(--line); }
   .routes li:first-child { border-top: 0; }
+  .routes li input { margin: 0 2px 0 0; width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+  .routes li.done .route, .routes li.done .note { color: var(--faint); }
+  .routes li.done .route a { color: var(--muted); }
+  .routes li .note { padding-left: 26px; }
   .routes .verb { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 500; color: var(--accent); min-width: 3.5em; }
   .routes .verb.other { color: var(--muted); }
   .routes .route { font-family: var(--font-mono); font-size: 0.9rem; font-weight: 500; overflow-wrap: anywhere; }
@@ -532,17 +536,22 @@
       "<p class='lede'>" +
       (qa.environment === "devcontainer" ? "The server runs in the project's devcontainer. " : "") +
       (qa.migrations ? "The PR has " + qa.migrations + " migration" + (qa.migrations === 1 ? "" : "s") + (qa.environment === "host" ? "; the server runs them on your development database. " : ". ") : "") +
-      (qa.start ? "Start it with <code>" + esc(qa.start) + "</code> on the PR branch. " : "") +
+      (qa.start ? (/[.!?]$/.test(qa.start.trim()) ? esc(qa.start.trim()) + " " : "Start it with <code>" + esc(qa.start) + "</code> on the PR branch. ") : "") +
       "Links open in a third tab that is reused." + (qa.source ? " Paths from " + esc(qa.source) + "." : "") + "</p></header>" +
       "<label class='base-url'><span>Base URL</span><input id='base-url' type='url' value='" + esc(baseUrl) + "' spellcheck='false'></label>" +
       "<ol class='routes'></ol>";
     const list = section.querySelector(".routes");
 
-    qa.routes.forEach((r) => {
+    qa.routes.forEach((r, ri) => {
       const item = document.createElement("li");
       const target = r.example || r.path;
       const isGet = (r.verb || "GET").toUpperCase() === "GET";
+      // QA ticks share the tour's state object (and its sync) but stay out of the reading progress.
+      const qaKey = "qa:" + (r.verb || "GET").toUpperCase() + " " + r.path;
+      item.dataset.key = qaKey;
+      if (state[qaKey]) item.classList.add("done");
       item.innerHTML =
+        "<input type='checkbox' id='qa-" + ri + "'" + (state[qaKey] ? " checked" : "") + " aria-label='Mark " + esc(r.path) + " as tried'>" +
         "<span class='verb" + (isGet ? "" : " other") + "'>" + esc(r.verb || "GET") + "</span>" +
         "<span class='route'>" +
           (isGet
@@ -553,6 +562,11 @@
         (r.action ? "<span class='chip'>" + esc(r.action) + "</span>" : "") +
         (r.chapter ? "<a class='chip' href='#chapter-" + r.chapter + "'>ch. " + pad(r.chapter) + "</a>" : "") +
         (r.note ? "<p class='note'>" + esc(r.note) + "</p>" : "");
+      item.querySelector("input").addEventListener("change", (e) => {
+        state[qaKey] = e.target.checked;
+        item.classList.toggle("done", e.target.checked);
+        save(state);
+      });
       list.appendChild(item);
     });
 
@@ -688,6 +702,11 @@
         if (!key) return;
         cb.checked = !!state[key];
         li.classList.toggle("read", !!state[key]);
+      });
+      document.querySelectorAll(".routes li[data-key]").forEach((li) => {
+        const on = !!state[li.dataset.key];
+        li.querySelector("input").checked = on;
+        li.classList.toggle("done", on);
       });
       updateProgress();
     }, () => {});

@@ -6,6 +6,18 @@ release notes on julianrubisch/skills.
 
 ## Unreleased
 
+## v1.5.0
+
+- **jr-rails-pr-tour**: non-Rails and mixed repositories: the symbol grep
+  covers Swift/Kotlin/TypeScript keywords, directories stand in for Rails
+  layers, and the attractor step checks for the language's plugin gem
+  (attractor-swift and the other lizard-based plugins on attractor ≥ 2.8)
+  with a troubleshooting row for a missing `uv`.
+- **jr-rails-pr-tour**: each route in "Try it on the dev server" has a
+  checkbox, stored and synced like the file ticks, outside the reading
+  progress. `qa.start` written as full sentences renders verbatim instead
+  of being wrapped in "Start it with … on the PR branch".
+
 ## v1.4.0
 
 - **jr-rails-pr-tour**: the progress indicator toggles, on click, between

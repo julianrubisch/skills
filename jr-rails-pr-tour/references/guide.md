@@ -111,6 +111,14 @@ For each changed `.rb` file at `$HEAD`, collect what it **defines**:
 git show "$HEAD:$path" | grep -oE '^\s*(class|module)\s+[A-Z][A-Za-z0-9_:]*' | awk '{print $2}'
 ```
 
+The same grep works for other typed languages with their keywords: Swift
+and Kotlin `(class|struct|enum|protocol|interface|extension|object)`,
+JavaScript/TypeScript `(class|interface|type)` plus `export function`.
+The Rails conventions below do not apply there; the directory is the
+grouping signal instead (Phase 4a absorbs by layer, and for a non-Rails
+repository the layer is the top-level directory: `Sources/<Module>`,
+`Tests/<Module>`, `app/`, `lib/`).
+
 Then, for each other changed file (any extension), test whether it
 **references** any of those constants, as a whole word:
 
@@ -212,6 +220,7 @@ Resolve in this order, and stop at the first hit:
 
    ```bash
    gem install attractor attractor-ruby attractor-javascript
+   # plus the plugin for each other language in the diff: attractor-swift, ...
    ```
 
    Tell the user in one line that you did this and for which Ruby. It is a
@@ -251,7 +260,13 @@ regardless of what the user has checked out, and cleans up after itself.
 Rows carry `complexity_base`, `complexity_head`, `delta`, `churn`,
 `score_head`, `refactor_base`, `refactor_head`, and `details_head` with
 per-method `{score, line, end_line}`. Requires attractor ≥ 2.7 with
-attractor-ruby ≥ 0.4 (and attractor-javascript ≥ 0.4 for JS).
+attractor-ruby ≥ 0.4 (and attractor-javascript ≥ 0.4 for JS). Other
+languages have their own plugin gem on attractor ≥ 2.8, scored with
+lizard through `uvx` (attractor-swift; Kotlin, Go and others follow the
+same template): check `gem list attractor-` against the extensions in the
+diff, and install the missing plugin the same way as the Ruby one. A
+language with no plugin gets no `churn` and no complexity, and falls to
+the diff-size rule below for that file only.
 
 Badge levels from the rows:
 
@@ -589,9 +604,14 @@ all as read" button (Phase 1b); it is always the last chapter.
 `[{path, churn, complexity}]` for files not in the PR. `qa` is optional;
 omit it when the PR has no web surface. `qa.source` is
 `bin/rails routes` or `routes.rb (static)`. `qa.environment` is
-`devcontainer` or `host`; `qa.start` is the command, or the editor action,
-that brings the server up; `qa.migrations` is the number of migrations in
-the PR (omit when 0). `chapter` is the 1-based
+`devcontainer` or `host`; `qa.start` is either a bare command (`bin/dev`,
+rendered as "Start it with `bin/dev` on the PR branch") or, when more
+needs saying, one or two full sentences ending in a period, rendered
+verbatim ("A dev server for this branch already runs on port 3100 from
+the wa-jquery-teardown worktree. Otherwise run bin/dev there.");
+`qa.migrations` is the number of migrations in the PR (omit when 0). Each
+route has its own checkbox; ticks are stored and synced like the file
+ticks but do not count toward reading progress. `chapter` is the 1-based
 chapter the route belongs to. `via` on a non-GET route names the GET page
 that holds the form. `host` is `null` in git-only mode; the template then
 renders paths as plain text. `risk.level` is 0, 1 or 2; `risk.label` is one of `grew`, `reworked`,
@@ -635,7 +655,8 @@ verbatim. `line` is optional; GitLab needs both
 | One chapter holds 80% of the files | one god model touched everywhere | Split by layer (4a.5) and say in the summary that the PR is really one concern |
 | `attractor: command not found` inside the project | the project's `.ruby-version` selects a Ruby without the gem | "Finding attractor": run it under another Ruby (`RBENV_VERSION=…`) or install into this one; never skip to the fallback |
 | `attractor diff` prints nothing | old attractor without `diff` | `attractor version` ≥ 2.7; upgrade with `gem update attractor` under the same Ruby |
-| `attractor diff` prints a header but no rows | `-c 0` missing (minimum churn 3 drops new files), or `attractor-ruby` / `attractor-javascript` not installed | Add `-c 0`; `gem list attractor-` |
+| `attractor diff` prints a header but no rows | `-c 0` missing (minimum churn 3 drops new files), or the language's plugin (`attractor-ruby`, `attractor-javascript`, `attractor-swift`, …) not installed | Add `-c 0`; `gem list attractor-` |
+| Swift/Kotlin rows missing, `lizard is not installed` in stderr | the plugin runs lizard via `uvx`; `uv` is not on PATH | `brew install uv`, or `pip install lizard`, or `ATTRACTOR_LIZARD="python -m lizard"` |
 | Links open a new tab every click | `rel="noopener"` got added, or the browser blocks popups for the artifact origin | Keep the template's anchor markup; allow popups once |
 | Link lands on the PR but not the file | large diff not yet loaded by the host | Scroll once, then click again; GitHub loads diffs lazily |
 | GitLab line anchor does nothing | missing `old` line | Link to the file instead |
